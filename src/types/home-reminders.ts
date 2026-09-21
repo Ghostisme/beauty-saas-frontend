@@ -9,3 +9,11 @@ export interface BirthdayReminderRecord {
   dateType: string
   date: string
 }
+
+export interface PendingAppointmentReminderRecord {
+  id: string | number
+  customer: ReminderCustomer
+  projects: string[]
+  appointmentTime: string
+  employeeName: string | null
+}

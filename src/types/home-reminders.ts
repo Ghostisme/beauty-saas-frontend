@@ -23,3 +23,12 @@ export interface InactiveCardReminderRecord {
   customer: ReminderCustomer
   lastVisitTime: string | null
 }
+
+export interface RechargeReminderRecord {
+  id: string | number
+  customer: ReminderCustomer
+  employeeName: string | null
+  totalSpent: number
+  visitCount: number
+  storeName: string
+}

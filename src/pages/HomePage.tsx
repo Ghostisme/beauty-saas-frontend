@@ -8,6 +8,7 @@ import { GoalEmpty } from '@/components/GoalEmpty'
 import { BirthdayReminderModal } from '@/components/home-reminders/BirthdayReminderModal'
 import { PendingAppointmentReminderModal } from '@/components/home-reminders/PendingAppointmentReminderModal'
 import { InactiveCardReminderModal } from '@/components/home-reminders/InactiveCardReminderModal'
+import { RechargeReminderModal } from '@/components/home-reminders/RechargeReminderModal'
 import { usePreferences } from '@/context/PreferencesContext'
 
 type Period = 'today' | 'week' | 'month' | 'custom'
@@ -27,7 +28,7 @@ const reminders: Reminder[] = [
   { key: 'balance', label: '充值提醒', icon: WalletFilled, color: '#4096ff' },
   { key: 'stock', label: '库存预警', icon: BellFilled, color: '#ff4d4f' },
 ]
-const implementedReminderKeys = new Set(['birthday', 'booking', 'absent'])
+const implementedReminderKeys = new Set(['birthday', 'booking', 'absent', 'balance'])
 const metrics = [
   { name: '现金', unit: '元', hint: '统计所选时间范围内的现金收入' },
   { name: '实操', unit: '元' },
@@ -158,6 +159,7 @@ export default function HomePage() {
       <BirthdayReminderModal open={activeReminder?.key === 'birthday'} onClose={closeReminder} />
       <PendingAppointmentReminderModal open={activeReminder?.key === 'booking'} onClose={closeReminder} />
       <InactiveCardReminderModal open={activeReminder?.key === 'absent'} onClose={closeReminder} />
+      <RechargeReminderModal open={activeReminder?.key === 'balance'} onClose={closeReminder} />
 
       <Modal
         title={activeReminder?.label}

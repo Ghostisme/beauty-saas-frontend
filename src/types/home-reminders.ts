@@ -24,6 +24,13 @@ export interface InactiveCardReminderRecord {
   lastVisitTime: string | null
 }
 
+export interface MembershipExpiryReminderRecord {
+  id: string | number
+  customer: ReminderCustomer
+  cardName: string
+  expiresAt: string | null
+}
+
 export interface RechargeReminderRecord {
   id: string | number
   customer: ReminderCustomer

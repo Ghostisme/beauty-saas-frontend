@@ -15,14 +15,19 @@ import { APP_NAME } from '@/config/app'
 export function AppLayout({ children }: { children: ReactNode }) {
   const screens = Grid.useBreakpoint()
   const mobile = !screens.md
-  const compact = !screens.lg
   const [navigationOpen, setNavigationOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [accountOpen, setAccountOpen] = useState(false)
   const [displaySettingsOpen, setDisplaySettingsOpen] = useState(false)
   const [passwordOpen, setPasswordOpen] = useState(false)
   const { session, logout } = useAuth()
-  const { storeName } = usePreferences()
+  const { storeName, displayMode, setDisplayMode } = usePreferences()
+  // Use the viewport only until the user chooses a mode. Phones always keep their mobile layout.
+  const mode = displayMode ?? (screens.lg ? 'pc' : 'pad')
+  const layoutMode = mobile ? 'mobile' : mode
+  const compact = layoutMode === 'pad'
+  const modeLabel = mode === 'pad' ? 'PAD模式' : '电脑模式'
+  const nextModeLabel = mode === 'pad' ? '电脑模式' : 'PAD模式'
   const user = session?.userInfo
   const displayName = user?.nickname?.trim() || '负责人'
   const menuItems = [{ key: '/', icon: <HomeFilled />, label: <Link to="/" onClick={() => setNavigationOpen(false)}>首页</Link> }]
@@ -42,8 +47,14 @@ export function AppLayout({ children }: { children: ReactNode }) {
     logout()
   }
 
+  function toggleDisplayMode() {
+    setDisplayMode(mode === 'pad' ? 'pc' : 'pad')
+    setSettingsOpen(false)
+    setAccountOpen(false)
+  }
+
   return (
-    <div className="workspace">
+    <div className="workspace" data-layout-mode={layoutMode}>
       <a className="skip-link" href="#main-content">跳到主要内容</a>
       <header className="workspace-header">
         <div className="header-brand">
@@ -85,10 +96,17 @@ export function AppLayout({ children }: { children: ReactNode }) {
 
       <aside className="workspace-sidebar" aria-label="主导航">
         <Menu mode="inline" inlineCollapsed={compact} selectedKeys={['/']} items={menuItems} />
-        <div className="device-mode">
-          {compact ? <TabletOutlined /> : <DesktopOutlined />}
-          {!compact && <span>电脑模式</span>}
-        </div>
+        <button
+          type="button"
+          className="device-mode"
+          onClick={toggleDisplayMode}
+          aria-label={modeLabel}
+          aria-pressed={mode === 'pad'}
+          title={`切换为${nextModeLabel}`}
+        >
+          {mode === 'pad' ? <TabletOutlined aria-hidden /> : <DesktopOutlined aria-hidden />}
+          <span>{modeLabel}</span>
+        </button>
       </aside>
 
       <Drawer

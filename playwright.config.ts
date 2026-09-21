@@ -15,7 +15,9 @@ export default defineConfig({
     screenshot: 'only-on-failure',
   },
   projects: [
+    { name: 'wide', use: { viewport: { width: 2560, height: 1431 } } },
     { name: 'desktop', use: { viewport: { width: 1440, height: 1000 } } },
+    { name: 'laptop', use: { viewport: { width: 1366, height: 768 } } },
     { name: 'tablet', use: { viewport: { width: 834, height: 1112 }, isMobile: true, hasTouch: true } },
     { name: 'mobile', use: { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true } },
   ],

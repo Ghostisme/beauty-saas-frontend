@@ -112,6 +112,73 @@ test('首页响应式、筛选、设置和移动导航', async ({ page }, testIn
   expect(browserErrors).toEqual([])
 })
 
+test('首页随窗口高度铺满屏幕，小屏可滚动且卡片不裁切', async ({ page }, testInfo) => {
+  await signInFixture(page)
+  const viewport = page.viewportSize()!
+
+  async function readLayout() {
+    return page.evaluate(() => {
+      const rect = (selector: string) => document.querySelector(selector)!.getBoundingClientRect()
+      const content = rect('.workspace-content')
+      const goals = rect('.goals-panel')
+      const performance = rect('.performance-panel')
+      const footer = rect('.workspace-body > .app-footer')
+      const columns = getComputedStyle(document.querySelector('.metrics-grid')!).gridTemplateColumns.split(' ').length
+      return {
+        documentHeight: document.documentElement.scrollHeight,
+        contentBottom: content.bottom,
+        goalsHeight: goals.height,
+        performanceHeight: performance.height,
+        performanceBottom: performance.bottom,
+        footerTop: footer.top,
+        footerBottom: footer.bottom,
+        columns,
+        cardsFit: [...document.querySelectorAll('.dashboard-panel')].every(card => card.scrollHeight <= card.clientHeight + 1),
+        metricsFit: [...document.querySelectorAll('.metric')].every(metric => {
+          const box = metric.getBoundingClientRect()
+          return box.top >= performance.top && box.bottom <= performance.bottom
+            && box.left >= performance.left && box.right <= performance.right
+        }),
+      }
+    })
+  }
+
+  const layout = await readLayout()
+  await expectNoOverflow(page)
+  expect(layout.cardsFit).toBe(true)
+  expect(layout.metricsFit).toBe(true)
+  expect(layout.columns).toBe(viewport.width < 768 ? 2 : 3)
+  expect(Math.abs(layout.performanceBottom - layout.contentBottom)).toBeLessThanOrEqual(1)
+  expect(Math.abs(layout.contentBottom - layout.footerTop)).toBeLessThanOrEqual(1)
+  expect(Math.abs(layout.footerBottom - layout.documentHeight)).toBeLessThanOrEqual(1)
+
+  if (testInfo.project.name === 'mobile') {
+    expect(layout.documentHeight).toBeGreaterThan(viewport.height)
+    await page.locator('.metric').last().scrollIntoViewIfNeeded()
+    await expect(page.locator('.metric').last()).toBeInViewport()
+    await page.getByRole('contentinfo').scrollIntoViewIfNeeded()
+    await expect(page.getByRole('contentinfo')).toBeInViewport()
+  } else {
+    expect(Math.abs(layout.documentHeight - viewport.height)).toBeLessThanOrEqual(1)
+    expect(Math.abs(layout.footerBottom - viewport.height)).toBeLessThanOrEqual(1)
+
+    // Growing the window must expand the cards themselves, not just the background.
+    await page.setViewportSize({ width: viewport.width, height: viewport.height + 240 })
+    await expect.poll(async () => (await readLayout()).documentHeight).toBe(viewport.height + 240)
+    const taller = await readLayout()
+    expect(taller.goalsHeight).toBeGreaterThan(layout.goalsHeight)
+    expect(taller.performanceHeight).toBeGreaterThan(layout.performanceHeight)
+    expect(Math.abs(taller.footerBottom - viewport.height - 240)).toBeLessThanOrEqual(1)
+    expect(taller.cardsFit).toBe(true)
+    expect(taller.metricsFit).toBe(true)
+
+    // Shrink the same window again to catch fixed heights left behind after resize.
+    await page.setViewportSize(viewport)
+    await expect.poll(async () => (await readLayout()).documentHeight).toBe(viewport.height)
+    await expectNoOverflow(page)
+  }
+})
+
 test('损坏或过期的本地登录信息安全回到登录页', async ({ page }) => {
   await page.goto('/login')
   await page.evaluate(key => localStorage.setItem(key, '{broken'), sessionKey)

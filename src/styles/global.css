@@ -126,6 +126,24 @@ button { -webkit-tap-highlight-color: transparent; }
 .comparison-value { color: var(--primary); }
 .reminder-empty { padding: 16px 0; }
 
+/* Homepage reminder lists share a frame; each module owns its columns and data type. */
+.home-reminder-modal .ant-modal { padding-bottom: 0; }
+.home-reminder-modal .ant-modal .home-reminder-container { display: flex; flex-direction: column; max-height: calc(100dvh - 32px); padding: 0; overflow: hidden; }
+.home-reminder-modal .ant-modal .home-reminder-header { flex: 0 0 auto; margin: 0; padding: 16px 24px; border-bottom: 1px solid var(--reminder-border); }
+.home-reminder-modal .ant-modal .home-reminder-title { padding-right: 28px; font-size: 15px; font-weight: 500; line-height: 24px; }
+.home-reminder-modal .ant-modal .home-reminder-close { top: 8px; right: 12px; width: 40px; height: 40px; }
+.home-reminder-modal .ant-modal .home-reminder-body { min-width: 0; min-height: 0; padding: 24px; overflow-y: auto; overscroll-behavior: contain; }
+.home-reminder-table .ant-table-content { overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: thin; }
+.home-reminder-modal .home-reminder-table .ant-table-thead > tr > th { height: 52px; padding: 14px 16px; border-bottom: 0; background: var(--reminder-header-bg); font-size: 13px; font-weight: 600; white-space: nowrap; }
+.home-reminder-table .ant-table-thead > tr > th::before { display: none; }
+.home-reminder-modal .home-reminder-table .ant-table-tbody > tr > td { padding: 14px 16px; font-size: 13px; overflow-wrap: anywhere; }
+.home-reminder-table-empty .ant-table-placeholder { display: none; }
+.home-reminder-state { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 336px; gap: 24px; padding: 32px 16px; color: var(--reminder-muted); font-size: 12px; }
+.home-reminder-state .goal-illustration { flex-shrink: 0; width: 180px; height: 139px; }
+.home-reminder-state .ant-alert { width: 100%; max-width: 540px; }
+.reminder-customer { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+.reminder-customer-phone { color: var(--reminder-muted); font-size: 12px; }
+
 @media (min-width: 1600px) {
   .workspace { --sidebar-width: 208px; }
   .reminder-bar { gap: 8px 32px; }
@@ -170,6 +188,11 @@ button { -webkit-tap-highlight-color: transparent; }
 }
 
 @media (max-width: 767px) {
+  .home-reminder-modal .ant-modal .home-reminder-header { padding: 14px 16px; }
+  .home-reminder-modal .ant-modal .home-reminder-close { top: 6px; right: 8px; }
+  .home-reminder-modal .ant-modal .home-reminder-body { padding: 16px; }
+  .home-reminder-state { min-height: 260px; gap: 20px; padding-inline: 0; }
+  .home-reminder-state .goal-illustration { width: 160px; height: 123px; }
   .workspace { --sidebar-width: 0px; --header-height: 54px; }
   .workspace-sidebar { display: none; }
   .workspace-header { padding-inline: 8px 12px; gap: 6px; }

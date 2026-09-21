@@ -5,6 +5,7 @@ import { BellFilled, ClockCircleFilled, ExclamationCircleFilled, GiftFilled, Inf
 import dayjs from 'dayjs'
 import type { Dayjs } from 'dayjs'
 import { GoalEmpty } from '@/components/GoalEmpty'
+import { BirthdayReminderModal } from '@/components/home-reminders/BirthdayReminderModal'
 import { usePreferences } from '@/context/PreferencesContext'
 
 type Period = 'today' | 'week' | 'month' | 'custom'
@@ -24,6 +25,7 @@ const reminders: Reminder[] = [
   { key: 'balance', label: '充值提醒', icon: WalletFilled, color: '#4096ff' },
   { key: 'stock', label: '库存预警', icon: BellFilled, color: '#ff4d4f' },
 ]
+const implementedReminderKeys = new Set(['birthday'])
 const metrics = [
   { name: '现金', unit: '元', hint: '统计所选时间范围内的现金收入' },
   { name: '实操', unit: '元' },
@@ -50,12 +52,16 @@ export default function HomePage() {
     if (value !== 'custom') setRange(rangeFor(value))
   }
 
+  function closeReminder() {
+    setActiveReminder(null)
+  }
+
   return (
     <div className="home-page">
       <h1 className="visually-hidden">首页</h1>
       <section className="reminder-bar" aria-label="门店提醒">
         {reminders.map(({ icon: Icon, ...item }) => (
-          <button key={item.key} className="reminder-item" onClick={() => setActiveReminder({ ...item, icon: Icon })}>
+          <button key={item.key} type="button" className="reminder-item" aria-haspopup="dialog" onClick={() => setActiveReminder({ ...item, icon: Icon })}>
             <span className="reminder-icon" aria-hidden="true" style={{ backgroundColor: item.color }}><Icon /></span>
             <span>{item.label}</span>
           </button>
@@ -126,6 +132,7 @@ export default function HomePage() {
             disabledDate={(current) => current.isAfter(dayjs(), 'day')}
             inputReadOnly
             format="YYYY-MM-DD"
+            placement="bottomRight"
             aria-label="自定义日期范围"
             classNames={{ popup: { root: 'responsive-range-popup' } }}
           />
@@ -146,11 +153,13 @@ export default function HomePage() {
         </div>
       </section>
 
+      <BirthdayReminderModal open={activeReminder?.key === 'birthday'} onClose={closeReminder} />
+
       <Modal
         title={activeReminder?.label}
-        open={activeReminder !== null}
-        onCancel={() => setActiveReminder(null)}
-        footer={<Button type="primary" onClick={() => setActiveReminder(null)}>知道了</Button>}
+        open={activeReminder !== null && !implementedReminderKeys.has(activeReminder.key)}
+        onCancel={closeReminder}
+        footer={<Button type="primary" onClick={closeReminder}>知道了</Button>}
         centered
       >
         <div className="reminder-empty"><Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="提醒服务尚未开通" /></div>

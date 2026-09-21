@@ -17,3 +17,9 @@ export interface PendingAppointmentReminderRecord {
   appointmentTime: string
   employeeName: string | null
 }
+
+export interface InactiveCardReminderRecord {
+  id: string | number
+  customer: ReminderCustomer
+  lastVisitTime: string | null
+}

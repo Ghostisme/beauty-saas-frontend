@@ -1,12 +1,15 @@
 import { useState } from 'react'
 import type { ReactNode } from 'react'
-import { Avatar, Button, Drawer, Dropdown, Grid, Menu, Tooltip } from 'antd'
-import { DesktopOutlined, DownOutlined, HomeFilled, LogoutOutlined, MenuOutlined, MobileOutlined, SettingOutlined, TabletOutlined, UserOutlined } from '@ant-design/icons'
+import { Avatar, Button, Drawer, Grid, Menu, Popover, Tooltip } from 'antd'
+import { DesktopOutlined, DownOutlined, HomeFilled, MenuOutlined, MobileOutlined, SettingOutlined, TabletOutlined, UserOutlined } from '@ant-design/icons'
 import { Link } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { usePreferences } from '@/context/PreferencesContext'
 import { SettingsDrawer } from '@/components/SettingsDrawer'
+import { AccountMenu } from '@/components/AccountMenu'
 import { AppFooter } from '@/components/AppFooter'
+import { ChangePasswordModal } from '@/components/ChangePasswordModal'
+import { TopSettingsMenu } from '@/components/TopSettingsMenu'
 import { APP_NAME } from '@/config/app'
 
 export function AppLayout({ children }: { children: ReactNode }) {
@@ -15,11 +18,29 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const compact = !screens.lg
   const [navigationOpen, setNavigationOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [accountOpen, setAccountOpen] = useState(false)
+  const [displaySettingsOpen, setDisplaySettingsOpen] = useState(false)
+  const [passwordOpen, setPasswordOpen] = useState(false)
   const { session, logout } = useAuth()
   const { storeName } = usePreferences()
   const user = session?.userInfo
-  const displayName = user?.username || '当前用户'
+  const displayName = user?.nickname?.trim() || '负责人'
   const menuItems = [{ key: '/', icon: <HomeFilled />, label: <Link to="/" onClick={() => setNavigationOpen(false)}>首页</Link> }]
+
+  function openDisplaySettings() {
+    setSettingsOpen(false)
+    setDisplaySettingsOpen(true)
+  }
+
+  function openPasswordDialog() {
+    setAccountOpen(false)
+    setPasswordOpen(true)
+  }
+
+  function handleLogout() {
+    setAccountOpen(false)
+    logout()
+  }
 
   return (
     <div className="workspace">
@@ -31,27 +52,34 @@ export function AppLayout({ children }: { children: ReactNode }) {
           <span className="store-name" title={storeName}>{storeName}</span>
         </div>
         <div className="header-actions">
-          <Tooltip title="设置">
-            <Button type="text" className="settings-button" icon={<SettingOutlined />} aria-label="设置" onClick={() => setSettingsOpen(true)} />
-          </Tooltip>
+          <Popover
+            trigger="click"
+            placement="bottomRight"
+            open={settingsOpen}
+            onOpenChange={setSettingsOpen}
+            content={<TopSettingsMenu onDisplaySettings={openDisplaySettings} />}
+            classNames={{ root: 'top-settings-popover' }}
+            align={mobile ? { offset: [54, 0] } : undefined}
+          >
+            <Tooltip title="设置">
+              <Button type="text" className="settings-button" icon={<SettingOutlined />} aria-label="设置" aria-haspopup="menu" aria-expanded={settingsOpen} />
+            </Tooltip>
+          </Popover>
           <span className="header-divider" aria-hidden />
-          <Dropdown
+          <Popover
             trigger={['click']}
             placement="bottomRight"
-            menu={{
-              items: [
-                { key: 'account', label: <div className="account-menu-info"><strong>{displayName}</strong><span>账号：{user?.username}</span></div>, disabled: true },
-                { type: 'divider' },
-                { key: 'logout', icon: <LogoutOutlined />, label: '退出登录', onClick: logout },
-              ],
-            }}
+            open={accountOpen}
+            onOpenChange={setAccountOpen}
+            content={<AccountMenu user={user} onChangePassword={openPasswordDialog} onLogout={handleLogout} />}
+            classNames={{ root: 'account-popover' }}
           >
-            <button type="button" className="user-button" aria-label="登录信息" aria-haspopup="menu">
+            <button type="button" className="user-button" aria-label="登录信息" aria-haspopup="menu" aria-expanded={accountOpen}>
               <Avatar size={30} className="user-avatar" icon={<UserOutlined />} />
               <span className="user-name">{displayName}</span>
               <DownOutlined className="user-chevron" />
             </button>
-          </Dropdown>
+          </Popover>
         </div>
       </header>
 
@@ -79,7 +107,8 @@ export function AppLayout({ children }: { children: ReactNode }) {
         <main id="main-content" className="workspace-content">{children}</main>
         <AppFooter />
       </div>
-      <SettingsDrawer open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      <SettingsDrawer open={displaySettingsOpen} onClose={() => setDisplaySettingsOpen(false)} />
+      <ChangePasswordModal open={passwordOpen} onClose={() => setPasswordOpen(false)} />
     </div>
   )
 }

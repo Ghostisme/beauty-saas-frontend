@@ -52,6 +52,34 @@ button { -webkit-tap-highlight-color: transparent; }
 .account-menu-info { display: flex; flex-direction: column; gap: 4px; padding: 3px 6px; }
 .account-menu-info strong { font-weight: 500; color: #434343; }
 .account-menu-info span { color: #8c8c8c; font-size: 12px; }
+.top-settings-popover .ant-popover-inner { padding: 0; overflow: hidden; }
+.top-settings-menu { width: 372px; max-height: min(72dvh, 560px); overflow-y: auto; padding: 18px 20px 14px; scrollbar-width: thin; }
+.top-settings-heading { display: flex; align-items: center; gap: 9px; margin-bottom: 16px; color: var(--text); font-size: 14px; font-weight: 600; }
+.top-settings-heading .anticon { color: var(--text-secondary); font-size: 16px; }
+.settings-group + .settings-group { margin-top: 15px; }
+.settings-group-title { display: flex; align-items: center; gap: 8px; margin: 0 0 8px; color: var(--text-secondary); font-size: 13px; font-weight: 600; line-height: 1.5; }
+.settings-group-icon { display: inline-flex; width: 17px; color: var(--text-secondary); font-size: 15px; }
+.settings-group-items { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 3px 8px; padding-left: 25px; }
+.settings-group-item, .settings-display-item { min-width: 0; padding: 5px 2px; border: 0; border-radius: 4px; background: transparent; color: var(--text-tertiary); font-size: 12px; line-height: 1.45; text-align: left; cursor: pointer; }
+.settings-group-item:hover, .settings-group-item:focus-visible, .settings-display-item:hover, .settings-display-item:focus-visible { color: var(--primary); background: var(--primary-bg); outline: 0; }
+.settings-group-item:focus-visible, .settings-display-item:focus-visible { box-shadow: 0 0 0 2px var(--primary-border); }
+.top-settings-divider { margin: 14px 0 8px; }
+.settings-display-item { display: flex; align-items: center; gap: 8px; width: 100%; padding: 7px 8px; }
+.settings-display-item .anticon { color: var(--text-secondary); }
+.account-popover .ant-popover-inner { padding: 0; overflow: hidden; }
+.account-popover-content { width: 260px; }
+.account-summary { display: flex; align-items: center; gap: 12px; padding: 17px 16px 15px; border-bottom: 1px solid var(--border); }
+.account-summary-avatar { flex: 0 0 auto; color: var(--primary); background: var(--primary-bg); }
+.account-summary-text { display: flex; min-width: 0; flex-direction: column; gap: 5px; }
+.account-summary-text strong { overflow: hidden; color: var(--text); font-size: 14px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.account-summary-text span { overflow: hidden; color: var(--text-tertiary); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.account-menu-actions { padding: 4px 0; }
+.account-menu-action { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 42px; padding: 0 16px; border: 0; background: transparent; color: var(--text-secondary); font-size: 13px; text-align: left; cursor: pointer; }
+.account-menu-action:hover, .account-menu-action:focus-visible { background: var(--page-bg); color: var(--primary); outline: 0; }
+.account-menu-action:focus-visible { box-shadow: inset 0 0 0 2px var(--primary-border); }
+.account-menu-action .anticon { width: 16px; font-size: 15px; }
+.account-menu-logout { border-top: 1px solid var(--border); }
+.change-password-notice { margin-bottom: 18px; }
 .workspace-sidebar { position: fixed; top: var(--header-height); bottom: 0; left: 0; z-index: 40; display: flex; flex-direction: column; width: var(--sidebar-width); padding: 16px 8px; background: var(--surface); border-right: 1px solid var(--border); }
 .workspace-sidebar .ant-menu { width: 100%; border-inline-end: 0 !important; }
 .workspace-sidebar .ant-menu-item { margin-inline: 0; width: 100%; }
@@ -125,6 +153,9 @@ button { -webkit-tap-highlight-color: transparent; }
   .header-actions { gap: 4px; }
   .header-divider, .user-name, .user-chevron { display: none; }
   .user-button { padding-inline: 4px; }
+  .top-settings-menu { width: min(372px, calc(100vw - 24px)); padding: 16px 14px 12px; }
+  .settings-group-items { grid-template-columns: repeat(3, minmax(0, 1fr)); padding-left: 24px; }
+  .account-popover-content { width: min(260px, calc(100vw - 24px)); }
   .workspace-content { padding: 12px 12px 0; }
   .reminder-bar { flex-wrap: nowrap; gap: 18px; min-height: 60px; padding: 12px 14px; overflow-x: auto; scrollbar-width: thin; scrollbar-color: #e6e8ec transparent; }
   .reminder-item { flex-shrink: 0; }

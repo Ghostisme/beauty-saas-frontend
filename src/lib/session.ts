@@ -3,6 +3,9 @@ import type { AuthSession } from '@/types/auth'
 export const SESSION_KEY = 'beauty-saas.auth.v1'
 export const SESSION_EXPIRED_EVENT = 'beauty-saas:session-expired'
 
+// The original admin seed import interpreted UTF-8 bytes as Windows-1252.
+const LEGACY_ADMIN_NICKNAME = '\u00e7\u00ae\u00a1\u00e7\u0090\u2020\u00e5\u2018\u02dc'
+
 export function tokenExpiresAt(token: string): number {
   try {
     const payload = token.split('.')[1]
@@ -27,7 +30,14 @@ export function isAuthSession(value: unknown): value is AuthSession {
 export function readSession(): AuthSession | null {
   try {
     const data: unknown = JSON.parse(localStorage.getItem(SESSION_KEY) ?? 'null')
-    return isAuthSession(data) ? data : null
+    if (!isAuthSession(data)) return null
+    // Migrate only the known seed value cached before the database repair.
+    if (data.userInfo.id === 1 && data.userInfo.username === 'admin' && data.userInfo.nickname === LEGACY_ADMIN_NICKNAME) {
+      const migrated = { ...data, userInfo: { ...data.userInfo, nickname: '管理员' } }
+      persistSession(migrated)
+      return migrated
+    }
+    return data
   } catch {
     return null
   }
@@ -41,4 +51,3 @@ export function persistSession(session: AuthSession | null) {
     // The current tab can still be used when browser storage is unavailable.
   }
 }
-

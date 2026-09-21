@@ -1,0 +1,171 @@
+* { box-sizing: border-box; }
+html, body, #root { min-width: 320px; min-height: 100%; margin: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif; -webkit-font-smoothing: antialiased; }
+button, input { font: inherit; }
+button { -webkit-tap-highlight-color: transparent; }
+.app-theme { min-height: 100dvh; color: var(--text); }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.page-loading { display: grid; min-height: 100dvh; place-items: center; background: #f5f5f5; }
+.app-footer { padding: 34px 16px 24px; text-align: center; color: #a2a8b1; font-size: 11px; line-height: 1.8; }
+.app-footer p { margin: 0; }
+.skip-link { position: fixed; top: -60px; left: 16px; padding: 10px 16px; background: white; border: 1px solid var(--primary); z-index: 1001; }
+.skip-link:focus { top: 8px; }
+
+/* Login */
+.login-page { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100dvh; padding: 64px 24px 100px; background: radial-gradient(ellipse at 96% 18%, #d9eaff 0, transparent 36%), radial-gradient(ellipse at 28% 100%, #dcecff 0, transparent 38%), radial-gradient(ellipse at 51% 36%, #ebf1fa 0, transparent 35%), #f7f9fc; }
+.login-card { width: 420px; max-width: 100%; min-height: 496px; padding: 38px 48px 44px; background: white; border-radius: 16px; box-shadow: 0 16px 60px rgb(39 64 99 / 9%); }
+.login-heading { text-align: center; }
+.login-heading h1 { margin: 0; font-size: 24px; line-height: 1.5; font-weight: 650; letter-spacing: 1px; color: #1f2329; }
+.login-heading p { margin: 8px 0 0; font-size: 14px; color: #8b929e; }
+.login-form-content { margin-top: 46px; }
+.login-form-content .ant-tabs-nav { margin-bottom: 26px; }
+.login-form-content .ant-tabs-tab { padding: 12px 0; }
+.login-form-content .ant-tabs-tab + .ant-tabs-tab { margin-left: 32px; }
+.login-form-content .ant-form-item { margin-bottom: 22px; }
+.login-form-content .ant-input-affix-wrapper { min-height: 42px; padding-left: 14px; }
+.login-form-content .ant-input { font-size: 13px; }
+.input-prefix { padding-right: 8px; font-size: 13px; color: #8c8c8c; }
+.forgot-password { display: flex; justify-content: flex-end; margin: -3px -6px 24px 0; }
+.forgot-password .ant-btn { font-size: 12px; }
+.login-submit { height: 42px; font-size: 14px; font-weight: 500; }
+.login-error { margin-bottom: 18px; font-size: 12px; }
+.browser-tip { display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 27px; font-size: 12px; color: #9299a4; white-space: nowrap; }
+.browser-tip .anticon { font-size: 17px; color: var(--primary); }
+.login-footer { position: absolute; bottom: 18px; padding: 0 16px; }
+.sms-panel { display: flex; flex-direction: column; justify-content: space-between; gap: 30px; min-height: 209px; padding: 8px 0 0; }
+
+/* Application frame */
+.workspace { --sidebar-width: 184px; --header-height: 56px; min-height: 100dvh; background: var(--page-bg); }
+.workspace-header { position: fixed; inset: 0 0 auto; z-index: 50; display: flex; align-items: center; justify-content: space-between; height: var(--header-height); padding: 0 20px; gap: 16px; background: var(--surface); border-bottom: 1px solid var(--border); }
+.header-brand { display: flex; align-items: center; min-width: 0; gap: 10px; }
+.brand-mark { display: grid; flex: 0 0 29px; width: 29px; height: 29px; border-radius: 7px; background: var(--primary); color: white; place-items: center; font-size: 17px; font-weight: 600; }
+.store-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 16px; font-weight: 600; }
+.header-actions { display: flex; align-items: center; flex-shrink: 0; gap: 12px; }
+.header-actions .settings-button { color: var(--text-secondary); font-size: 18px; }
+.header-divider { height: 20px; width: 1px; background: var(--border); }
+.user-button { display: flex; align-items: center; gap: 9px; padding: 4px 6px; border: 0; border-radius: 6px; background: transparent; cursor: pointer; color: var(--text); }
+.user-button:hover { background: var(--page-bg); }
+.user-button:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.user-button .user-avatar { color: var(--primary); background: var(--primary-bg); }
+.user-name { max-width: 126px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
+.user-chevron { margin-left: 5px; font-size: 10px; color: var(--text-tertiary); }
+.account-menu-info { display: flex; flex-direction: column; gap: 4px; padding: 3px 6px; }
+.account-menu-info strong { font-weight: 500; color: #434343; }
+.account-menu-info span { color: #8c8c8c; font-size: 12px; }
+.workspace-sidebar { position: fixed; top: var(--header-height); bottom: 0; left: 0; z-index: 40; display: flex; flex-direction: column; width: var(--sidebar-width); padding: 16px 8px; background: var(--surface); border-right: 1px solid var(--border); }
+.workspace-sidebar .ant-menu { width: 100%; border-inline-end: 0 !important; }
+.workspace-sidebar .ant-menu-item { margin-inline: 0; width: 100%; }
+.workspace-sidebar .ant-menu-item .anticon { font-size: 17px; }
+.device-mode { display: flex; align-items: center; justify-content: center; gap: 9px; margin: auto 8px 0; padding: 8px 10px; border-radius: 7px; background: var(--primary-bg); color: var(--primary); font-size: 12px; }
+.device-mode .anticon { font-size: 17px; }
+.workspace-body { margin-left: var(--sidebar-width); padding-top: var(--header-height); min-height: 100dvh; }
+.workspace-content { padding: 18px 20px 0; }
+.home-page { min-width: 0; }
+.navigation-drawer .ant-drawer-body { padding: 8px; }
+.navigation-drawer .ant-menu { border-inline-end: 0 !important; }
+.mobile-mode { margin: 24px 20px; font-size: 12px; color: #8c8c8c; }
+.drawer-actions { display: flex; justify-content: flex-end; }
+.settings-account { margin-top: 36px; padding-top: 20px; border-top: 1px solid #f0f0f0; }
+
+/* Homepage follows the reference: reminders, monthly goals, then six metrics. */
+.reminder-bar { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 18px; min-height: 66px; margin-bottom: 14px; padding: 12px 18px; background: var(--surface); border-radius: var(--radius); }
+.reminder-item { display: flex; align-items: center; gap: 9px; min-height: 34px; padding: 4px 3px; border: 0; border-radius: 5px; color: var(--text-secondary); background: transparent; font-size: 12px; white-space: nowrap; cursor: pointer; }
+.reminder-item:hover { color: var(--primary); background: var(--primary-bg); }
+.reminder-item:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.reminder-icon { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 22px; height: 22px; border-radius: 50%; color: white; font-size: 13px; }
+.dashboard-panel { min-width: 0; overflow: hidden; background: var(--surface); border-radius: var(--radius); }
+.goals-panel { margin-bottom: 14px; }
+.panel-header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; min-height: 51px; padding: 12px 20px; border-bottom: 1px solid var(--border); }
+.panel-heading { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
+.panel-heading h2 { flex-shrink: 0; margin: 0; color: var(--text-secondary); font-size: 14px; font-weight: 600; line-height: 1.6; }
+.panel-date { color: #a0a5ae; font-size: 11px; line-height: 1.6; }
+.goals-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 251px; padding: 24px 16px 32px; gap: 16px; color: #a0a5ae; font-size: 12px; }
+.goal-illustration { width: 160px; height: 123px; }
+.performance-filters { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; min-width: 0; }
+.performance-filters .ant-radio-button-wrapper { padding-inline: 10px; font-size: 12px; }
+.store-select { width: 196px; font-size: 12px; }
+.custom-date-row { display: flex; justify-content: flex-end; align-items: center; gap: 12px; padding: 14px 20px 0; color: var(--text-secondary); font-size: 12px; }
+.metrics-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); row-gap: 36px; padding: 36px 22px 47px; }
+.metric { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 104px; }
+.metric-label { display: flex; align-items: center; gap: 7px; margin-bottom: 13px; color: #80858e; font-size: 13px; }
+.metric-info { display: inline-flex; padding: 0; border: 0; color: #c4c7cd; background: transparent; cursor: help; font-size: 12px; }
+.metric .ant-statistic-content { color: #595f69; font-size: 29px; line-height: 1.3; font-weight: 400; font-variant-numeric: tabular-nums; }
+.metric .ant-statistic-content-suffix { margin-left: 2px; font-size: 12px; }
+.metric-comparison { display: flex; gap: 9px; margin-top: 7px; color: #a4a8b0; font-size: 12px; }
+.comparison-value { color: var(--primary); }
+.reminder-empty { padding: 16px 0; }
+
+@media (min-width: 1600px) {
+  .workspace { --sidebar-width: 208px; }
+  .reminder-bar { gap: 8px 32px; }
+  .goals-empty { min-height: 300px; }
+  .metrics-grid { row-gap: 52px; padding-block: 48px 60px; }
+}
+
+@media (min-width: 768px) and (max-width: 991px) {
+  .workspace { --sidebar-width: 72px; }
+  .workspace-sidebar { padding-inline: 6px; }
+  .workspace-sidebar .ant-menu-inline-collapsed > .ant-menu-item { padding-inline: calc(50% - 8px); }
+  .device-mode { margin-inline: 3px; padding-inline: 0; }
+  .workspace-content { padding: 16px 16px 0; }
+  .reminder-bar { gap: 6px 16px; }
+  .performance-header { align-items: flex-start; }
+  .performance-filters { justify-content: space-between; width: 100%; }
+  .metrics-grid { padding-inline: 10px; }
+}
+
+@media (max-width: 767px) {
+  .workspace { --sidebar-width: 0px; --header-height: 54px; }
+  .workspace-sidebar { display: none; }
+  .workspace-header { padding-inline: 8px 12px; gap: 6px; }
+  .header-brand { gap: 4px; }
+  .header-brand > .ant-btn { flex-shrink: 0; }
+  .brand-mark { display: none; }
+  .store-name { font-size: 14px; }
+  .header-actions { gap: 4px; }
+  .header-divider, .user-name, .user-chevron { display: none; }
+  .user-button { padding-inline: 4px; }
+  .workspace-content { padding: 12px 12px 0; }
+  .reminder-bar { flex-wrap: nowrap; gap: 18px; min-height: 60px; padding: 12px 14px; overflow-x: auto; scrollbar-width: thin; scrollbar-color: #e6e8ec transparent; }
+  .reminder-item { flex-shrink: 0; }
+  .panel-header { padding: 12px 14px; gap: 12px; }
+  .panel-heading { gap: 8px; }
+  .panel-heading h2 { font-size: 14px; }
+  .panel-date { font-size: 10px; }
+  .goals-empty { min-height: 212px; gap: 12px; padding-block: 20px 28px; }
+  .goal-illustration { width: 142px; height: 109px; }
+  .performance-header .panel-heading { width: 100%; flex-wrap: wrap; gap: 4px 8px; }
+  .performance-filters { width: 100%; gap: 10px; }
+  .performance-filters .ant-radio-group { display: flex; width: 100%; }
+  .performance-filters .ant-radio-button-wrapper { flex: 1; min-height: 32px; line-height: 30px; text-align: center; padding-inline: 9px; }
+  .store-select { width: 100%; height: 32px; }
+  .metrics-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 32px 8px; padding: 28px 12px 32px; }
+  .metric { min-height: 92px; }
+  .metric-label { margin-bottom: 10px; }
+  .metric .ant-statistic-content { font-size: 27px; }
+  .custom-date-row { flex-wrap: wrap; justify-content: flex-start; gap: 8px; padding: 14px 14px 0; }
+  .custom-date-row .ant-picker { width: 100%; }
+  .responsive-range-popup .ant-picker-panels { flex-direction: column; }
+  .responsive-range-popup .ant-picker-panel-layout { max-width: calc(100vw - 24px); }
+  .app-footer { padding-block: 26px 20px; font-size: 10px; }
+  .settings-drawer .ant-drawer-content-wrapper { max-width: calc(100vw - 16px); }
+  .login-page { padding: 36px 20px 94px; }
+  .login-card { width: 400px; padding: 34px 28px 36px; }
+  .login-heading h1 { font-size: 23px; }
+  .login-form-content { margin-top: 40px; }
+  .login-footer { bottom: 20px; padding: 0; }
+}
+
+@media (max-height: 650px) {
+  .login-page { justify-content: flex-start; padding-top: 28px; padding-bottom: 24px; }
+  .login-footer { position: static; margin-top: 30px; }
+}
+
+@media (max-width: 767px), (max-height: 500px) {
+  .responsive-range-popup { position: fixed !important; inset: 12px auto auto 50% !important; transform: translateX(-50%) !important; }
+  .responsive-range-popup .ant-picker-panel-container { max-height: calc(100dvh - 24px); overflow-y: auto; overscroll-behavior: contain; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}

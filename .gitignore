@@ -1,0 +1,14 @@
+# Dependencies and generated files
+node_modules
+dist
+.vscode
+.idea
+*.log
+.DS_Store
+.pnpm-store/
+test-results/
+playwright-report/
+artifacts/
+*.tsbuildinfo
+.env.local
+.env.*.local

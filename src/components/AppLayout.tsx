@@ -2,7 +2,7 @@ import { useState } from 'react'
 import type { ReactNode } from 'react'
 import { Avatar, Button, Drawer, Grid, Menu, Popover, Tooltip } from 'antd'
 import type { MenuProps } from 'antd'
-import { BankOutlined, DesktopOutlined, DownOutlined, HomeFilled, MenuOutlined, MobileOutlined, SettingOutlined, TabletOutlined, TeamOutlined, UserOutlined } from '@ant-design/icons'
+import { BankOutlined, DesktopOutlined, DownOutlined, FileTextOutlined, HomeFilled, MenuOutlined, MobileOutlined, SettingOutlined, TabletOutlined, TeamOutlined, UserOutlined } from '@ant-design/icons'
 import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { usePreferences } from '@/context/PreferencesContext'
@@ -38,6 +38,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
       ? [{ key: '/platform/tenants', icon: <BankOutlined />, label: <Link to="/platform/tenants" onClick={() => setNavigationOpen(false)}>企业管理</Link> }]
       : [{ key: '/', icon: <HomeFilled />, label: <Link to="/" onClick={() => setNavigationOpen(false)}>首页</Link> }]),
     ...(canManage ? [{ key: '/user-management', icon: <TeamOutlined />, label: <Link to="/user-management" onClick={() => setNavigationOpen(false)}>用户管理</Link> }] : []),
+    ...(user?.platformAdmin || can('orders:read') ? [{ key: 'customer-operations', type: 'group' as const, label: '顾客经营', children: [{ key: '/orders', icon: <FileTextOutlined />, label: <Link to="/orders" onClick={() => setNavigationOpen(false)}>订单管理</Link> }] }] : []),
   ]
 
   function openDisplaySettings() {

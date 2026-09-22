@@ -84,6 +84,8 @@ button { -webkit-tap-highlight-color: transparent; }
 .workspace-sidebar .ant-menu { width: 100%; border-inline-end: 0 !important; }
 .workspace-sidebar .ant-menu-item { margin-inline: 0; width: 100%; }
 .workspace-sidebar .ant-menu-item .anticon { font-size: 17px; }
+.workspace-sidebar .ant-menu-item-group-title { margin-top: 18px; padding-inline: 16px; font-size: 12px; color: var(--text-tertiary); }
+.workspace[data-layout-mode='pad'] .workspace-sidebar .ant-menu-item-group-title { padding-inline: 0; font-size: 11px; text-align: center; }
 .device-mode { display: flex; flex: 0 0 auto; align-items: center; justify-content: center; gap: 9px; min-height: 40px; margin: auto 8px 0; padding: 8px 10px; border: 1px solid transparent; border-radius: 7px; background: var(--primary-bg); color: var(--primary); font-size: 12px; white-space: nowrap; cursor: pointer; touch-action: manipulation; }
 .device-mode:hover { border-color: var(--primary-border); }
 .device-mode:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }

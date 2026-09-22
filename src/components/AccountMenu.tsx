@@ -19,6 +19,7 @@ export function AccountMenu({ user, onChangePassword, onLogout }: AccountMenuPro
         <div className="account-summary-text">
           <strong>{displayName}</strong>
           <span>{accountLabel}</span>
+          {user?.platformAdmin ? <span>身份：平台超级管理员</span> : user?.tenantCode && <span title={user.tenantName}>企业：{user.tenantCode}</span>}
         </div>
       </div>
       <div className="account-menu-actions">

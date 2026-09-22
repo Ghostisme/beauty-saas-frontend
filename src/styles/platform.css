@@ -1,0 +1,16 @@
+.platform-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+.platform-stat { min-width: 0; padding: 20px 24px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); }
+.platform-content { padding-top: 24px; }
+.platform-content > .ant-alert { margin-bottom: 24px; }
+.platform-scope-bar { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; padding: 16px 20px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
+.platform-scope-bar .ant-select { width: 360px; max-width: 100%; }
+.platform-scope-label { font-weight: 500; }
+.platform-workspace { display: flex; flex-direction: column; flex: 1 0 auto; gap: 20px; min-width: 0; }
+.platform-scope-detail { color: var(--text-tertiary); font-size: 12px; }
+@media (max-width: 767px) {
+  .platform-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .platform-stat { padding: 16px; }
+  .platform-content { padding-top: 16px; }
+  .platform-scope-bar { padding: 14px 12px; }
+  .platform-scope-bar .ant-select { width: 100%; }
+}

@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import type { ReactNode } from 'react'
 import { Avatar, Button, Drawer, Grid, Menu, Popover, Tooltip } from 'antd'
-import { DesktopOutlined, DownOutlined, HomeFilled, MenuOutlined, MobileOutlined, SettingOutlined, TabletOutlined, UserOutlined } from '@ant-design/icons'
-import { Link } from 'react-router-dom'
+import type { MenuProps } from 'antd'
+import { BankOutlined, DesktopOutlined, DownOutlined, HomeFilled, MenuOutlined, MobileOutlined, SettingOutlined, TabletOutlined, TeamOutlined, UserOutlined } from '@ant-design/icons'
+import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { usePreferences } from '@/context/PreferencesContext'
 import { SettingsDrawer } from '@/components/SettingsDrawer'
@@ -20,7 +21,8 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const [accountOpen, setAccountOpen] = useState(false)
   const [displaySettingsOpen, setDisplaySettingsOpen] = useState(false)
   const [passwordOpen, setPasswordOpen] = useState(false)
-  const { session, logout } = useAuth()
+  const { session, logout, can } = useAuth()
+  const location = useLocation()
   const { storeName, displayMode, setDisplayMode } = usePreferences()
   // Use the viewport only until the user chooses a mode. Phones always keep their mobile layout.
   const mode = displayMode ?? (screens.lg ? 'pc' : 'pad')
@@ -30,7 +32,13 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const nextModeLabel = mode === 'pad' ? '电脑模式' : 'PAD模式'
   const user = session?.userInfo
   const displayName = user?.nickname?.trim() || '负责人'
-  const menuItems = [{ key: '/', icon: <HomeFilled />, label: <Link to="/" onClick={() => setNavigationOpen(false)}>首页</Link> }]
+  const canManage = ['tenant:read', 'users:read', 'departments:read', 'rooms:read', 'roles:read'].some(can)
+  const menuItems: MenuProps['items'] = [
+    ...(user?.platformAdmin
+      ? [{ key: '/platform/tenants', icon: <BankOutlined />, label: <Link to="/platform/tenants" onClick={() => setNavigationOpen(false)}>企业管理</Link> }]
+      : [{ key: '/', icon: <HomeFilled />, label: <Link to="/" onClick={() => setNavigationOpen(false)}>首页</Link> }]),
+    ...(canManage ? [{ key: '/user-management', icon: <TeamOutlined />, label: <Link to="/user-management" onClick={() => setNavigationOpen(false)}>用户管理</Link> }] : []),
+  ]
 
   function openDisplaySettings() {
     setSettingsOpen(false)
@@ -68,7 +76,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
             placement="bottomRight"
             open={settingsOpen}
             onOpenChange={setSettingsOpen}
-            content={<TopSettingsMenu onDisplaySettings={openDisplaySettings} />}
+            content={<TopSettingsMenu onDisplaySettings={openDisplaySettings} onNavigate={() => setSettingsOpen(false)} />}
             classNames={{ root: 'top-settings-popover' }}
             align={mobile ? { offset: [54, 0] } : undefined}
           >
@@ -95,7 +103,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
       </header>
 
       <aside className="workspace-sidebar" aria-label="主导航">
-        <Menu mode="inline" inlineCollapsed={compact} selectedKeys={['/']} items={menuItems} />
+        <Menu mode="inline" inlineCollapsed={compact} selectedKeys={[location.pathname]} items={menuItems} />
         <button
           type="button"
           className="device-mode"
@@ -117,7 +125,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
         onClose={() => setNavigationOpen(false)}
         className="navigation-drawer"
       >
-        <nav aria-label="移动端主导航"><Menu selectedKeys={['/']} mode="inline" items={menuItems} /></nav>
+        <nav aria-label="移动端主导航"><Menu selectedKeys={[location.pathname]} mode="inline" items={menuItems} /></nav>
         <div className="mobile-mode"><MobileOutlined /> 移动模式</div>
       </Drawer>
 

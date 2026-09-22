@@ -1,0 +1,69 @@
+.iam-page { display: flex; flex: 1 0 auto; flex-direction: column; min-width: 0; gap: 20px; }
+.iam-page-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 6px 2px 0; }
+.iam-page-heading h1 { display: flex; align-items: center; gap: 10px; margin: 0; font-size: 21px; font-weight: 600; }
+.iam-page-heading h1 .anticon { color: var(--primary); }
+.iam-page-heading p { margin: 8px 0 0; color: var(--text-tertiary); font-size: 13px; line-height: 1.7; }
+.iam-content { flex: 1 0 auto; min-width: 0; padding: 4px 24px 24px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
+.iam-content .ant-tabs, .iam-content .ant-tabs-content-holder, .iam-panel { min-width: 0; }
+.iam-content .ant-tabs-nav { margin-bottom: 22px; }
+.iam-content .ant-tabs-tab { padding-block: 16px; }
+.iam-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 16px; }
+.iam-toolbar > .ant-input-search { width: 260px; max-width: 100%; }
+.iam-toolbar > .ant-select { width: 190px; max-width: 100%; }
+.iam-toolbar > .iam-status-filter { width: 110px; }
+.iam-toolbar-actions { display: flex; align-items: center; gap: 10px; margin-left: auto; }
+.iam-hint { margin: 12px 0 18px; font-size: 12px; color: var(--text-tertiary, #8c8c8c); line-height: 1.8; }
+.iam-query-error { margin-block: 16px; }
+.iam-muted, .iam-user-cell > span { color: var(--text-tertiary); font-size: 12px; }
+.iam-user-cell { display: flex; flex-direction: column; gap: 5px; }
+.iam-user-cell strong { font-weight: 500; }
+.iam-panel .ant-table-cell { overflow-wrap: anywhere; }
+.iam-panel .ant-table-content { scrollbar-width: thin; overscroll-behavior-x: contain; }
+.iam-panel .ant-table-pagination { flex-wrap: wrap; row-gap: 12px; }
+.iam-loading { display: grid; min-height: 280px; place-items: center; }
+.iam-loading .ant-spin-nested-loading { width: 160px; height: 100px; }
+.iam-modal .ant-modal-body { max-height: calc(100dvh - 220px); overflow-y: auto; overscroll-behavior: contain; padding-right: 4px; }
+.iam-modal .ant-modal-header { margin-bottom: 20px; }
+.iam-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 20px; }
+.iam-form-grid > *, .iam-role-row > * { min-width: 0; }
+.iam-form-section-title { margin: 0 0 16px; font-weight: 500; }
+.iam-role-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) 32px; column-gap: 12px; }
+.iam-role-row > .ant-btn { margin-top: 30px; }
+.iam-permission-list { border: 1px solid var(--border, #f0f0f0); border-radius: 8px; overflow: hidden; }
+.iam-permission-group { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--border, #f0f0f0); }
+.iam-permission-group:last-child { border-bottom: 0; }
+.iam-permission-group strong { min-width: 88px; font-size: 13px; font-weight: 500; }
+.iam-permission-group > div { display: flex; flex-wrap: wrap; gap: 10px 16px; }
+.iam-tenant-panel > .ant-alert { margin-bottom: 24px; }
+.iam-tenant-form { max-width: 520px; margin-top: 28px; }
+.iam-tenant-panel .ant-descriptions-item-content { overflow-wrap: anywhere; }
+.workspace[data-layout-mode='pad'] .iam-toolbar .ant-btn { min-height: 40px; }
+.workspace[data-layout-mode='pad'] .iam-content { padding-inline: 18px; }
+@media (max-width: 767px) {
+  .iam-page { gap: 16px; }
+  .iam-page-heading h1 { font-size: 19px; }
+  .iam-page-heading p { max-width: 260px; font-size: 12px; }
+  .iam-content { padding: 0 12px 20px; }
+  .iam-content .ant-tabs-tab { padding-block: 14px; }
+  .iam-toolbar { gap: 10px; }
+  .iam-toolbar > .ant-input-search { width: 100%; }
+  .iam-toolbar > .ant-select { flex: 1; min-width: 130px; }
+  .iam-toolbar > .iam-status-filter { min-width: 100px; }
+  .iam-toolbar-actions { width: 100%; justify-content: flex-end; }
+  .iam-toolbar .ant-btn { min-height: 40px; }
+  .iam-form-grid { grid-template-columns: minmax(0, 1fr); }
+  .iam-modal .ant-modal-body { max-height: calc(100dvh - 200px); }
+  .iam-role-row { grid-template-columns: minmax(0, 1fr) 32px; gap: 0 8px; padding-bottom: 12px; margin-bottom: 12px; border-bottom: 1px solid #f0f0f0; }
+  .iam-role-row > .ant-form-item { grid-column: 1; margin-bottom: 14px; }
+  .iam-role-row > .ant-btn { grid-column: 2; grid-row: 1; }
+  .iam-permission-group { align-items: flex-start; padding: 12px; }
+  .iam-permission-group strong { min-width: 68px; }
+  .iam-panel .ant-pagination-total-text { width: 100%; text-align: right; }
+}
+@media (max-width: 360px) {
+  .iam-content .ant-tabs-tab { font-size: 13px; }
+}
+@media (max-height: 600px) {
+  .iam-modal .ant-modal { top: 16px; padding-bottom: 16px; }
+  .iam-modal .ant-modal-body { max-height: calc(100dvh - 160px); }
+}

@@ -1,6 +1,8 @@
 import { App, Divider } from 'antd'
 import type { ReactNode } from 'react'
 import { AppstoreOutlined, FundOutlined, SettingOutlined, ShopOutlined, TeamOutlined } from '@ant-design/icons'
+import { useNavigate } from 'react-router-dom'
+import { useAuth } from '@/context/AuthContext'
 
 interface SettingsItem {
   key: string
@@ -78,13 +80,21 @@ const settingsGroups: SettingsGroup[] = [
 
 interface TopSettingsMenuProps {
   onDisplaySettings: () => void
+  onNavigate: () => void
 }
 
-export function TopSettingsMenu({ onDisplaySettings }: TopSettingsMenuProps) {
+export function TopSettingsMenu({ onDisplaySettings, onNavigate }: TopSettingsMenuProps) {
   const { message } = App.useApp()
+  const navigate = useNavigate()
+  const { can } = useAuth()
+  const managementTabs: Record<string, string> = { stores: 'departments', rooms: 'rooms', permissions: 'roles', authorization: 'roles', 'staff-list': 'users', positions: 'roles' }
 
-  function showPlaceholder(label: string) {
-    void message.info(`${label}功能将在后续模块接入`)
+  function openItem(item: SettingsItem) {
+    const tab = managementTabs[item.key]
+    if (!tab) { void message.info(`${item.label}功能将在后续模块接入`); return }
+    if (!can(`${tab}:read`)) { void message.warning('暂无访问权限，请联系企业管理员'); return }
+    onNavigate()
+    navigate(`/user-management?tab=${tab}`)
   }
 
   return (
@@ -106,7 +116,7 @@ export function TopSettingsMenu({ onDisplaySettings }: TopSettingsMenuProps) {
                 key={item.key}
                 type="button"
                 role="menuitem"
-                onClick={() => showPlaceholder(item.label)}
+                onClick={() => openItem(item)}
               >
                 {item.label}
               </button>

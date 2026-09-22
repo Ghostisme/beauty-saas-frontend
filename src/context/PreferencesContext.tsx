@@ -1,6 +1,7 @@
 import { createContext, useContext, useState } from 'react'
 import type { ReactNode } from 'react'
 import { DEFAULT_STORE_NAME } from '@/config/app'
+import { useOptionalAuth } from '@/context/AuthContext'
 
 const STORE_NAME_KEY = 'beauty-saas.store-name.v1'
 const DISPLAY_MODE_KEY = 'beauty-saas.display-mode.v1'
@@ -13,11 +14,11 @@ interface Preferences {
 }
 const PreferencesContext = createContext<Preferences | null>(null)
 
-function readStoreName() {
+function readStoreName(key: string, fallback: string) {
   try {
-    return localStorage.getItem(STORE_NAME_KEY)?.trim().slice(0, 30) || DEFAULT_STORE_NAME
+    return localStorage.getItem(key)?.trim().slice(0, 30) || fallback
   } catch {
-    return DEFAULT_STORE_NAME
+    return fallback
   }
 }
 
@@ -31,12 +32,16 @@ function readDisplayMode(): DisplayMode | null {
 }
 
 export function PreferencesProvider({ children }: { children: ReactNode }) {
-  const [storeName, updateStoreName] = useState(readStoreName)
+  const auth = useOptionalAuth()
+  const storeKey = `${STORE_NAME_KEY}.${auth?.session?.userInfo.tenantId ?? 'guest'}`
+  const fallback = auth?.session?.userInfo.tenantName || DEFAULT_STORE_NAME
+  const [names, updateNames] = useState<Record<string, string>>({})
+  const storeName = names[storeKey] ?? readStoreName(storeKey, fallback)
   const [displayMode, updateDisplayMode] = useState(readDisplayMode)
   function setStoreName(name: string) {
-    const next = name.trim().slice(0, 30) || DEFAULT_STORE_NAME
-    updateStoreName(next)
-    try { localStorage.setItem(STORE_NAME_KEY, next) } catch { /* Keep the in-memory preference. */ }
+    const next = name.trim().slice(0, 30) || fallback
+    updateNames(previous => ({ ...previous, [storeKey]: next }))
+    try { localStorage.setItem(storeKey, next) } catch { /* Keep the in-memory preference. */ }
   }
   function setDisplayMode(mode: DisplayMode) {
     updateDisplayMode(mode)

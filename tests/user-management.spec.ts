@@ -1,0 +1,230 @@
+import { mkdir } from 'node:fs/promises'
+import { expect, test } from '@playwright/test'
+import type { Locator, Page } from '@playwright/test'
+import { installIam } from './fixtures/iam'
+import { session } from './fixtures/auth'
+
+async function fits(page: Page, dialog?: Locator) {
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  if (dialog) {
+    await expect(dialog).not.toHaveClass(/ant-zoom-(appear|enter|leave)/)
+    const bounds = (await dialog.boundingBox())!, viewport = page.viewportSize()!
+    expect(bounds.x).toBeGreaterThanOrEqual(0)
+    expect(bounds.x + bounds.width).toBeLessThanOrEqual(viewport.width + 1)
+    expect(bounds.y + bounds.height).toBeLessThanOrEqual(viewport.height + 1)
+  }
+}
+async function choose(page: Page, label: string, option: string) {
+  await page.getByLabel(label, { exact: true }).click()
+  await page.locator('.ant-select-dropdown:visible').getByText(option, { exact: true }).click()
+}
+async function save(dialog: Locator) { await dialog.getByRole('button', { name: /^保\s*存$/ }).click(); await expect(dialog).toBeHidden() }
+
+test('管理入口、五个模块、管理员保护与响应式布局', async ({ page }, info) => {
+  const errors: string[] = []; page.on('pageerror', error => errors.push(error.message))
+  await installIam(page)
+  await page.goto('/')
+  if (page.viewportSize()!.width < 768) await page.getByRole('button', { name: '打开导航' }).click()
+  await page.getByRole('link', { name: '用户管理', exact: true }).first().click()
+  await expect(page.getByRole('heading', { name: '用户管理' })).toBeVisible()
+  await expect(page.getByRole('tab')).toHaveText(['用户', '部门 / 门店', '房间', '角色权限', '企业信息'])
+  const owner = page.getByRole('row').filter({ hasText: '负责人' })
+  await expect(owner.getByRole('button', { name: '删除', exact: true })).toHaveCount(0)
+  await expect(owner.getByRole('button', { name: '重置密码' })).toHaveCount(0)
+  await fits(page)
+  await mkdir('artifacts', { recursive: true })
+  await page.screenshot({ path: `artifacts/iam-users-${info.project.name}.png`, fullPage: true })
+  await owner.getByRole('button', { name: '编辑' }).click()
+  const dialog = page.getByRole('dialog', { name: '编辑用户', exact: true })
+  await expect(dialog.getByLabel('登录账号', { exact: true })).toBeDisabled()
+  await expect(dialog.getByLabel('状态', { exact: true })).toBeDisabled()
+  await expect(dialog.getByRole('button', { name: '移除角色 1' })).toBeDisabled()
+  await fits(page, dialog)
+  await page.screenshot({ path: `artifacts/iam-user-form-${info.project.name}.png`, fullPage: true })
+  await dialog.getByRole('button', { name: /取\s*消/ }).click()
+  for (const tab of ['部门 / 门店', '房间', '角色权限', '企业信息']) {
+    await page.getByRole('tab', { name: tab, exact: true }).click()
+    await expect(page.getByRole('tabpanel')).toBeVisible()
+    await fits(page)
+  }
+  await expect(page.getByText('企业由平台开通', { exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: '新增企业' })).toHaveCount(0)
+  await page.getByRole('tab', { name: '用户', exact: true }).click()
+  await expect(page.getByRole('tab', { name: '用户', exact: true })).toHaveAttribute('aria-selected', 'true')
+  await expect(owner).toBeVisible()
+  if (page.viewportSize()!.width < 768) {
+    await page.setViewportSize({ width: 320, height: 740 })
+    for (const tab of await page.getByRole('tab').all()) await expect(tab).toBeInViewport({ ratio: 1 })
+    await page.getByRole('tab', { name: '企业信息', exact: true }).click()
+    await expect(page.getByText('企业由平台开通', { exact: true })).toBeVisible()
+    await page.getByRole('tab', { name: '用户', exact: true }).click()
+    await expect(owner).toBeVisible()
+    await fits(page)
+  }
+  expect(errors).toEqual([])
+})
+
+test('部门层级与房间的新增编辑删除调用真实接口契约', async ({ page }) => {
+  const state = await installIam(page)
+  await page.goto('/user-management?tab=departments')
+  await page.getByRole('button', { name: '新增部门', exact: true }).click()
+  let dialog = page.getByRole('dialog', { name: '新增部门 / 门店' })
+  await choose(page, '上级部门', '中心店 (MAIN)')
+  await dialog.getByLabel('部门名称', { exact: true }).fill('护理部')
+  await dialog.getByLabel('部门编码', { exact: true }).fill('CARE')
+  await choose(page, '组织类型', '部门')
+  await save(dialog)
+  expect(state.writes.at(-1)?.body).toMatchObject({ name: '护理部', code: 'CARE', parentId: 1, type: 'DEPARTMENT' })
+  const department = state.departments.find(d => d.code === 'CARE')!
+  await page.getByRole('tab', { name: '房间', exact: true }).click()
+  await page.getByRole('button', { name: '新增房间' }).click()
+  dialog = page.getByRole('dialog', { name: '新增房间' })
+  await choose(page, '所属部门 / 门店', '护理部 (CARE)')
+  await dialog.getByLabel('房间名称', { exact: true }).fill('护理二室')
+  await dialog.getByLabel('房间编码', { exact: true }).fill('CARE02')
+  await save(dialog)
+  expect(state.writes.at(-1)?.body).toMatchObject({ departmentId: department.id, code: 'CARE02', capacity: 1 })
+  let row = page.getByRole('row').filter({ hasText: '护理二室' })
+  await row.getByRole('button', { name: '编辑' }).click()
+  dialog = page.getByRole('dialog', { name: '编辑房间' })
+  await dialog.getByLabel('房间名称', { exact: true }).fill('静享护理室')
+  await save(dialog)
+  row = page.getByRole('row').filter({ hasText: '静享护理室' })
+  await expect(row).toBeVisible()
+  await row.getByRole('button', { name: '删除', exact: true }).click()
+  await page.getByRole('dialog').getByRole('button', { name: /^删\s*除$/ }).click()
+  await expect(row).toHaveCount(0)
+  await fits(page)
+})
+
+test('用户多部门角色关联、搜索分页、重置密码与删除', async ({ page }) => {
+  const state = await installIam(page)
+  await page.goto('/user-management')
+  await page.getByRole('button', { name: '新增用户' }).click()
+  const dialog = page.getByRole('dialog', { name: '新增用户' })
+  await dialog.getByLabel('登录账号', { exact: true }).fill('beautician.liu')
+  await dialog.getByLabel('用户姓名', { exact: true }).fill('刘美容师')
+  await dialog.getByLabel('初始密码', { exact: true }).fill('TestPassword123!')
+  await choose(page, '所属部门 / 门店', '中心店 (MAIN)')
+  await page.keyboard.press('Escape')
+  await choose(page, '角色 1', '美容师')
+  await choose(page, '授权范围 1', '中心店（含下级）')
+  await fits(page, dialog)
+  await save(dialog)
+  expect(state.writes.at(-1)?.body).toMatchObject({ username: 'beautician.liu', departmentIds: [1], roleGrants: [{ roleId: 5, departmentId: 1 }] })
+  const row = page.getByRole('row').filter({ hasText: '刘美容师' })
+  await expect(row).toContainText('美容师 · 中心店')
+  await page.getByLabel('搜索用户', { exact: true }).fill('beautician.liu')
+  await page.getByLabel('搜索用户', { exact: true }).press('Enter')
+  await expect(page.getByText('共 1 条', { exact: true })).toBeVisible()
+  await row.getByRole('button', { name: '重置密码' }).click()
+  const reset = page.getByRole('dialog', { name: '重置密码 · 刘美容师' })
+  await reset.getByLabel('新密码', { exact: true }).fill('ResetPassword123!')
+  await reset.getByLabel('确认新密码', { exact: true }).fill('ResetPassword123!')
+  await reset.getByRole('button', { name: '重置密码', exact: true }).click()
+  await expect(reset).toBeHidden()
+  expect(state.writes.at(-1)?.path).toMatch(/^users\/\d+\/password$/)
+  await row.getByRole('button', { name: '删除', exact: true }).click()
+  await page.getByRole('dialog').getByRole('button', { name: /^删\s*除$/ }).click()
+  await expect(row).toHaveCount(0)
+})
+
+test('角色维护自动补齐查看权限、企业信息保存与真实改密', async ({ page }) => {
+  const state = await installIam(page)
+  await page.goto('/user-management?tab=roles')
+  await expect(page.getByText('共 7 条', { exact: true })).toBeVisible()
+  await page.getByRole('button', { name: '新增角色' }).click()
+  let dialog = page.getByRole('dialog', { name: '新增角色' })
+  await dialog.getByLabel('角色名称', { exact: true }).fill('护理主管')
+  await dialog.getByLabel('角色编码', { exact: true }).fill('CARE_LEAD')
+  await dialog.getByRole('checkbox', { name: '维护房间', exact: true }).check()
+  await expect(dialog.getByRole('checkbox', { name: '查看房间', exact: true })).toBeChecked()
+  await save(dialog)
+  expect(state.writes.at(-1)?.body.permissionCodes).toEqual(expect.arrayContaining(['rooms:read', 'rooms:write']))
+  await page.getByRole('tab', { name: '企业信息', exact: true }).click()
+  await page.getByLabel('企业名称', { exact: true }).fill('更新后的企业名称')
+  await page.getByRole('button', { name: '保存企业信息' }).click()
+  await expect(page.locator('.store-name')).toHaveText('更新后的企业名称')
+  expect(state.tenantName).toBe('更新后的企业名称')
+  await page.getByRole('button', { name: '登录信息', exact: true }).click()
+  await page.getByRole('menuitem', { name: '修改密码' }).click()
+  dialog = page.getByRole('dialog', { name: '修改密码' })
+  await dialog.getByLabel('当前密码', { exact: true }).fill('OldPassword123!')
+  await dialog.getByLabel('新密码', { exact: true }).fill('NewPassword123!')
+  await dialog.getByLabel('确认新密码', { exact: true }).fill('NewPassword123!')
+  await dialog.getByRole('button', { name: /^提\s*交$/ }).click()
+  await expect(page).toHaveURL(/\/login$/)
+  expect(state.writes.at(-1)).toMatchObject({ method: 'POST', path: 'password', body: { currentPassword: 'OldPassword123!', newPassword: 'NewPassword123!' } })
+  expect(await page.evaluate(() => localStorage.getItem('beauty-saas.auth.v1'))).toBeNull()
+})
+
+test('只读权限不展示越权操作、接口失败可重试且会话过期退出', async ({ page }) => {
+  const state = await installIam(page, { ...session.userInfo, owner: false, permissions: ['home:read', 'rooms:read'] })
+  state.failNext = 'options'
+  await page.goto('/user-management')
+  await expect(page.getByText('加载失败', { exact: true })).toBeVisible()
+  state.failNext = ''
+  await page.getByRole('button', { name: '重试', exact: true }).click()
+  await expect(page.getByRole('tab')).toHaveText(['房间'])
+  await expect(page.getByRole('button', { name: '新增房间' })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: '编辑', exact: true })).toHaveCount(0)
+  await expect(page.getByText('舒适护理室', { exact: true })).toBeVisible()
+  await fits(page)
+  await page.route('**/api/iam/rooms?**', route => route.fulfill({ status: 401, json: { code: 401, message: '登录失效' } }))
+  await page.getByRole('button', { name: '刷新房间' }).click()
+  await expect(page).toHaveURL(/\/login$/)
+})
+
+test('管理弹窗 Esc 关闭、再次打开重置表单且隐藏弹窗不抢键盘', async ({ page }) => {
+  test.setTimeout(60_000)
+  const connectionWarnings: string[] = []
+  page.on('console', event => {
+    if (/not connected to any Form|flushSync was called from inside/i.test(event.text())) connectionWarnings.push(event.text())
+  })
+  const state = await installIam(page)
+  await page.goto('/user-management')
+  async function escape(dialog: Locator) {
+    await fits(page, dialog)
+    await page.keyboard.press('Escape')
+    await expect(dialog).toBeHidden()
+    await expect(page.locator('.ant-modal-mask:visible')).toHaveCount(0)
+  }
+  const createUser = page.getByRole('button', { name: '新增用户' })
+  await createUser.click()
+  let dialog = page.getByRole('dialog', { name: '新增用户', exact: true })
+  await dialog.getByLabel('登录账号', { exact: true }).fill('unsaved.draft')
+  await escape(dialog)
+  await expect(createUser).toBeFocused()
+  await createUser.click()
+  await expect(dialog.getByLabel('登录账号', { exact: true })).toHaveValue('')
+  await escape(dialog)
+
+  const manager = page.getByRole('row').filter({ hasText: '张经理' })
+  await manager.getByRole('button', { name: '编辑', exact: true }).click()
+  dialog = page.getByRole('dialog', { name: '编辑用户', exact: true })
+  await expect(dialog.getByLabel('登录账号', { exact: true })).toHaveValue('manager')
+  await expect(dialog.getByLabel('用户姓名', { exact: true })).toHaveValue('张经理')
+  await escape(dialog)
+  await manager.getByRole('button', { name: '重置密码', exact: true }).click()
+  dialog = page.getByRole('dialog', { name: '重置密码 · 张经理' })
+  await dialog.getByLabel('新密码', { exact: true }).fill('NeverSubmitted123!')
+  await escape(dialog)
+  await manager.getByRole('button', { name: '重置密码', exact: true }).click()
+  await expect(dialog.getByLabel('新密码', { exact: true })).toHaveValue('')
+  await escape(dialog)
+
+  for (const [tab, button, title] of [
+    ['部门 / 门店', '新增部门', '新增部门 / 门店'],
+    ['房间', '新增房间', '新增房间'],
+    ['角色权限', '新增角色', '新增角色'],
+  ]) {
+    await page.getByRole('tab', { name: tab, exact: true }).click()
+    await page.getByRole('button', { name: button }).click()
+    await escape(page.getByRole('dialog', { name: title, exact: true }))
+  }
+  await page.getByRole('button', { name: '登录信息', exact: true }).click()
+  await page.getByRole('menuitem', { name: '修改密码' }).click()
+  await escape(page.getByRole('dialog', { name: '修改密码', exact: true }))
+  expect(state.writes).toEqual([])
+  expect(connectionWarnings).toEqual([])
+})

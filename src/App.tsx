@@ -6,6 +6,8 @@ import { useAuth } from '@/context/AuthContext'
 
 const LoginPage = lazy(() => import('@/pages/LoginPage'))
 const HomePage = lazy(() => import('@/pages/HomePage'))
+const UserManagementPage = lazy(() => import('@/pages/UserManagementPage'))
+const PlatformTenantsPage = lazy(() => import('@/pages/PlatformTenantsPage'))
 const AppLayout = lazy(() => import('@/components/AppLayout').then(module => ({ default: module.AppLayout })))
 
 function RequireAuth() {
@@ -14,6 +16,7 @@ function RequireAuth() {
 }
 
 export default function App() {
+  const { session } = useAuth()
   const { token } = theme.useToken()
   const variables = {
     '--primary': token.colorPrimary,
@@ -34,7 +37,9 @@ export default function App() {
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route element={<RequireAuth />}>
-            <Route path="/" element={<HomePage />} />
+            <Route path="/" element={session?.userInfo.platformAdmin ? <Navigate to="/platform/tenants" replace /> : <HomePage />} />
+            <Route path="/platform/tenants" element={<PlatformTenantsPage />} />
+            <Route path="/user-management" element={<UserManagementPage />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

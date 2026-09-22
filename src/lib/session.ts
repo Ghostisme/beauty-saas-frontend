@@ -24,6 +24,13 @@ export function isAuthSession(value: unknown): value is AuthSession {
   return typeof session.token === 'string'
     && typeof session.userInfo?.id === 'number'
     && typeof session.userInfo.username === 'string'
+    && typeof session.userInfo.platformAdmin === 'boolean'
+    && Number.isSafeInteger(session.userInfo.tenantId)
+    && (session.userInfo.platformAdmin ? session.userInfo.tenantId === 0 : session.userInfo.tenantId > 0)
+    && typeof session.userInfo.tenantCode === 'string' && (session.userInfo.platformAdmin || session.userInfo.tenantCode.length > 0)
+    && typeof session.userInfo.tenantName === 'string'
+    && typeof session.userInfo.owner === 'boolean'
+    && Array.isArray(session.userInfo.permissions) && session.userInfo.permissions.every(permission => typeof permission === 'string')
     && tokenExpiresAt(session.token) > Date.now()
 }
 

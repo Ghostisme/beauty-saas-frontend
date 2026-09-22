@@ -1,4 +1,8 @@
 import { Alert, App, Form, Input, Modal } from 'antd'
+import { useState } from 'react'
+import { request } from '@/lib/request'
+import { useAuth } from '@/context/AuthContext'
+import { errorMessage, passwordRules } from '@/components/iam/shared'
 
 interface PasswordValues {
   currentPassword: string
@@ -14,16 +18,23 @@ interface ChangePasswordModalProps {
 export function ChangePasswordModal({ open, onClose }: ChangePasswordModalProps) {
   const [form] = Form.useForm<PasswordValues>()
   const { message } = App.useApp()
+  const { logout } = useAuth()
+  const [saving, setSaving] = useState(false)
 
   function handleClose() {
+    if (saving) return
     form.resetFields()
     onClose()
   }
 
-  function submit(values: PasswordValues) {
-    void values
-    void message.info('修改密码接口尚未接入，当前仅完成表单校验')
-    handleClose()
+  async function submit(values: PasswordValues) {
+    setSaving(true)
+    try {
+      await request('/iam/password', { method: 'POST', body: JSON.stringify({ currentPassword: values.currentPassword, newPassword: values.newPassword }) })
+      form.resetFields(); onClose(); logout()
+      void message.success('密码已修改，请使用新密码重新登录')
+    } catch (cause) { void message.error(errorMessage(cause)) }
+    finally { setSaving(false) }
   }
 
   return (
@@ -34,24 +45,27 @@ export function ChangePasswordModal({ open, onClose }: ChangePasswordModalProps)
       onOk={() => form.submit()}
       okText="提交"
       cancelText="取消"
-      destroyOnHidden
+      centered
+      confirmLoading={saving}
+      okButtonProps={{ 'aria-label': '提交' }}
+      cancelButtonProps={{ disabled: saving }}
     >
       <Alert
         className="change-password-notice"
         type="info"
         showIcon
-        title="后端密码修改接口尚未接入，提交后不会改变登录密码。"
+        title="修改成功后，当前账号的所有旧登录将失效，需要重新登录。"
       />
-      <Form form={form} layout="vertical" requiredMark={false} onFinish={submit}>
+      <Form name="self-password-change" form={form} layout="vertical" requiredMark={false} onFinish={submit} disabled={saving}>
         <Form.Item label="当前密码" name="currentPassword" rules={[{ required: true, message: '请输入当前密码' }]}>
-          <Input.Password autoComplete="current-password" />
+          <Input.Password autoComplete="current-password" maxLength={128} />
         </Form.Item>
         <Form.Item
           label="新密码"
           name="newPassword"
-          rules={[{ required: true, message: '请输入新密码' }, { min: 6, message: '新密码至少 6 位' }]}
+          rules={passwordRules}
         >
-          <Input.Password autoComplete="new-password" />
+          <Input.Password autoComplete="new-password" maxLength={72} />
         </Form.Item>
         <Form.Item
           label="确认新密码"
@@ -67,7 +81,7 @@ export function ChangePasswordModal({ open, onClose }: ChangePasswordModalProps)
             }),
           ]}
         >
-          <Input.Password autoComplete="new-password" />
+          <Input.Password autoComplete="new-password" maxLength={72} />
         </Form.Item>
       </Form>
     </Modal>

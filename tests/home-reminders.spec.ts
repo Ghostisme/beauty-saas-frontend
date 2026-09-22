@@ -8,7 +8,7 @@ const cases = [
   { key: 'booking', trigger: '待确认预约', title: '待确认预约', columns: ['顾客信息', '预约项目', '预约时间', '预约员工'] },
   { key: 'absent', trigger: '持卡顾客7–100天未到店', title: '持卡未到店', columns: ['顾客信息', '时间'] },
   { key: 'expiry', trigger: '会员卡到期', title: '会员卡到期', columns: ['顾客信息', '卡名称', '到期时间'] },
-  { key: 'balance', trigger: '充值提醒', title: '充值提醒', columns: ['会员姓名', '跟踪员工', '累计消费', '总到店次数', '所属门店'] },
+  { key: 'balance', trigger: '充值提醒', title: '充值提醒', columns: ['会员姓名', '跟踪员工', '累计消费', '总到店次数', '所属门店', '上次到店', '余额不足的卡'] },
 ]
 
 async function expectDialogFits(page: Page, dialog: Locator) {
@@ -117,6 +117,8 @@ test('提醒列表的数据展示、加载状态和失败重试（仅测试夹�
       await expect(dialog.getByText(/1,280\.50/)).toBeAttached()
       await expect(dialog.getByText('12', { exact: true })).toBeAttached()
       await expect(dialog.getByText('测试门店', { exact: true })).toBeAttached()
+      await expect(dialog.getByText('2026-09-20 18:20', { exact: true })).toBeAttached()
+      await expect(dialog.getByText('测试护理次卡、肩颈护理卡', { exact: true })).toBeAttached()
     }
     await expectDialogFits(page, dialog)
     await dialog.getByRole('button', { name: '关闭', exact: true }).click()

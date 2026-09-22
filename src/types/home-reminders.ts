@@ -38,4 +38,6 @@ export interface RechargeReminderRecord {
   totalSpent: number
   visitCount: number
   storeName: string
+  lastVisitTime: string | null
+  insufficientCards: string[]
 }

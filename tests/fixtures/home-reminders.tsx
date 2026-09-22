@@ -40,7 +40,7 @@ function Fixture({ kind, initialState }: { kind: Kind, initialState: State }) {
     { id: 'expiry-1', customer, cardName: '测试护理年卡', expiresAt: '2026-09-30T23:59:00' },
   ]} />
   return <RechargeReminderModal {...props} records={[
-    { id: 'balance-1', customer, employeeName: '测试美容师', totalSpent: 1280.5, visitCount: 12, storeName: '测试门店' },
+    { id: 'balance-1', customer, employeeName: '测试美容师', totalSpent: 1280.5, visitCount: 12, storeName: '测试门店', lastVisitTime: '2026-09-20T18:20:00', insufficientCards: ['测试护理次卡', '肩颈护理卡'] },
   ]} />
 }
 

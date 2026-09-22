@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { ComponentType } from 'react'
-import { Button, DatePicker, Empty, Modal, Radio, Select, Statistic, Tooltip } from 'antd'
+import { DatePicker, Radio, Select, Statistic, Tooltip } from 'antd'
 import { BellFilled, ClockCircleFilled, ExclamationCircleFilled, GiftFilled, InfoCircleFilled, SafetyCertificateFilled, ShopOutlined, UserOutlined, WalletFilled } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import type { Dayjs } from 'dayjs'
@@ -10,7 +10,9 @@ import { PendingAppointmentReminderModal } from '@/components/home-reminders/Pen
 import { InactiveCardReminderModal } from '@/components/home-reminders/InactiveCardReminderModal'
 import { MembershipExpiryReminderModal } from '@/components/home-reminders/MembershipExpiryReminderModal'
 import { RechargeReminderModal } from '@/components/home-reminders/RechargeReminderModal'
+import { InventoryAlertsDrawer } from '@/components/home-reminders/InventoryAlertsDrawer'
 import { usePreferences } from '@/context/PreferencesContext'
+import { useNavigate } from 'react-router-dom'
 
 type Period = 'today' | 'week' | 'month' | 'custom'
 type DateRange = [Dayjs, Dayjs]
@@ -29,7 +31,6 @@ const reminders: Reminder[] = [
   { key: 'balance', label: '充值提醒', icon: WalletFilled, color: '#4096ff' },
   { key: 'stock', label: '库存预警', icon: BellFilled, color: '#ff4d4f' },
 ]
-const implementedReminderKeys = new Set(['birthday', 'booking', 'absent', 'expiry', 'balance'])
 const metrics = [
   { name: '现金', unit: '元', hint: '统计所选时间范围内的现金收入' },
   { name: '实操', unit: '元' },
@@ -45,11 +46,13 @@ function rangeFor(period: Exclude<Period, 'custom'>): DateRange {
 }
 
 export default function HomePage() {
+  const navigate = useNavigate()
   const { storeName } = usePreferences()
   const [scope, setScope] = useState('mine')
   const [period, setPeriod] = useState<Period>('week')
   const [range, setRange] = useState<DateRange>(() => rangeFor('week'))
   const [activeReminder, setActiveReminder] = useState<Reminder | null>(null)
+  const [inventoryOpen, setInventoryOpen] = useState(false)
 
   function changePeriod(value: Period) {
     setPeriod(value)
@@ -60,12 +63,24 @@ export default function HomePage() {
     setActiveReminder(null)
   }
 
+  function openReminder(item: Omit<Reminder, 'icon'>, Icon: ComponentType) {
+    if (item.key === 'followup') {
+      navigate('/customers?tab=followup')
+      return
+    }
+    if (item.key === 'stock') {
+      setInventoryOpen(true)
+      return
+    }
+    setActiveReminder({ ...item, icon: Icon })
+  }
+
   return (
     <div className="home-page">
       <h1 className="visually-hidden">首页</h1>
       <section className="reminder-bar" aria-label="门店提醒">
         {reminders.map(({ icon: Icon, ...item }) => (
-          <button key={item.key} type="button" className="reminder-item" aria-haspopup="dialog" onClick={() => setActiveReminder({ ...item, icon: Icon })}>
+          <button key={item.key} type="button" className="reminder-item" aria-haspopup={item.key === 'followup' ? undefined : 'dialog'} onClick={() => openReminder(item, Icon)}>
             <span className="reminder-icon" aria-hidden="true" style={{ backgroundColor: item.color }}><Icon /></span>
             <span>{item.label}</span>
           </button>
@@ -162,16 +177,7 @@ export default function HomePage() {
       <InactiveCardReminderModal open={activeReminder?.key === 'absent'} onClose={closeReminder} />
       <MembershipExpiryReminderModal open={activeReminder?.key === 'expiry'} onClose={closeReminder} />
       <RechargeReminderModal open={activeReminder?.key === 'balance'} onClose={closeReminder} />
-
-      <Modal
-        title={activeReminder?.label}
-        open={activeReminder !== null && !implementedReminderKeys.has(activeReminder.key)}
-        onCancel={closeReminder}
-        footer={<Button type="primary" onClick={closeReminder}>知道了</Button>}
-        centered
-      >
-        <div className="reminder-empty"><Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="提醒服务尚未开通" /></div>
-      </Modal>
+      <InventoryAlertsDrawer open={inventoryOpen} onClose={() => setInventoryOpen(false)} />
     </div>
   )
 }

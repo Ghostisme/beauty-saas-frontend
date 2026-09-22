@@ -1,6 +1,7 @@
 import { mkdir } from 'node:fs/promises'
 import { expect, test } from '@playwright/test'
 import type { Page } from '@playwright/test'
+import { mockProfile, session } from './fixtures/auth'
 
 const displayModeKey = 'beauty-saas.display-mode.v1'
 
@@ -28,11 +29,11 @@ test('电脑与 PAD 模式真实切换、记忆选择，并保留手机自适应
   page.on('pageerror', error => browserErrors.push(error.message))
   const originalViewport = page.viewportSize()!
   // Browser-only auth fixture; an unknown layout preference must safely fall back to the viewport.
-  const token = `${Buffer.from('{"alg":"HS256"}').toString('base64url')}.${Buffer.from(JSON.stringify({ exp: Math.floor(Date.now() / 1000) + 3600 })).toString('base64url')}.test-only`
-  await page.addInitScript(({ token, displayModeKey }) => {
-    localStorage.setItem('beauty-saas.auth.v1', JSON.stringify({ token, userInfo: { id: 1, username: 'admin', nickname: '管理员' } }))
+  await mockProfile(page)
+  await page.addInitScript(({ session, displayModeKey }) => {
+    localStorage.setItem('beauty-saas.auth.v1', JSON.stringify(session))
     if (localStorage.getItem(displayModeKey) === null) localStorage.setItem(displayModeKey, 'unknown-layout')
-  }, { token, displayModeKey })
+  }, { session, displayModeKey })
   await page.goto('/')
   const workspace = page.locator('.workspace')
   const toggle = page.locator('.device-mode')

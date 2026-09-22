@@ -9,6 +9,7 @@ const HomePage = lazy(() => import('@/pages/HomePage'))
 const UserManagementPage = lazy(() => import('@/pages/UserManagementPage'))
 const PlatformTenantsPage = lazy(() => import('@/pages/PlatformTenantsPage'))
 const OrdersPage = lazy(() => import('@/pages/OrdersPage'))
+const SmsPage = lazy(() => import('@/pages/SmsPage'))
 const AppLayout = lazy(() => import('@/components/AppLayout').then(module => ({ default: module.AppLayout })))
 
 function RequireAuth() {
@@ -42,6 +43,7 @@ export default function App() {
             <Route path="/platform/tenants" element={<PlatformTenantsPage />} />
             <Route path="/user-management" element={<UserManagementPage />} />
             <Route path="/orders" element={<OrdersPage />} />
+            <Route path="/sms" element={<SmsPage />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

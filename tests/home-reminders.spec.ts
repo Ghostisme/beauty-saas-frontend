@@ -1,6 +1,7 @@
 import { mkdir } from 'node:fs/promises'
 import { expect, test } from '@playwright/test'
 import type { Locator, Page } from '@playwright/test'
+import { mockProfile, session } from './fixtures/auth'
 
 const cases = [
   { key: 'birthday', trigger: '顾客生日', title: '顾客生日', columns: ['顾客信息', '日期类型', '时间'] },
@@ -28,12 +29,12 @@ async function expectDialogFits(page: Page, dialog: Locator) {
 }
 
 test.beforeEach(async ({ page }, testInfo) => {
-  const token = `${Buffer.from('{"alg":"HS256"}').toString('base64url')}.${Buffer.from(JSON.stringify({ exp: Math.floor(Date.now() / 1000) + 3600 })).toString('base64url')}.test-only`
-  await page.addInitScript(({ token, forcePad }) => {
-    localStorage.setItem('beauty-saas.auth.v1', JSON.stringify({ token, userInfo: { id: 1, username: 'admin', nickname: '管理员' } }))
+  await mockProfile(page)
+  await page.addInitScript(({ session, forcePad }) => {
+    localStorage.setItem('beauty-saas.auth.v1', JSON.stringify(session))
     // Also cover manually selected PAD mode on a wide screen, not just native tablet dimensions.
     if (forcePad) localStorage.setItem('beauty-saas.display-mode.v1', 'pad')
-  }, { token, forcePad: testInfo.project.name === 'desktop' })
+  }, { session, forcePad: testInfo.project.name === 'desktop' })
   await page.goto('/')
   await expect(page.getByRole('heading', { name: '业绩概览' })).toBeVisible()
 })

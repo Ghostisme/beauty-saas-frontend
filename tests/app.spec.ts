@@ -2,11 +2,9 @@ import { mkdir } from 'node:fs/promises'
 import { expect, test } from '@playwright/test'
 import type { Page } from '@playwright/test'
 import dayjs from 'dayjs'
+import { mockProfile, session, sessionKey } from './fixtures/auth'
 
-const sessionKey = 'beauty-saas.auth.v1'
-// Fixtures are confined to browser tests. Production login always calls the backend.
-const token = `${Buffer.from('{"alg":"HS256"}').toString('base64url')}.${Buffer.from(JSON.stringify({ exp: Math.floor(Date.now() / 1000) + 3600 })).toString('base64url')}.test-only`
-const session = { token, userInfo: { id: 1, username: 'admin', nickname: '管理员' } }
+test.beforeEach(async ({ page }) => { await mockProfile(page) })
 
 async function expectNoOverflow(page: Page) {
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
@@ -27,11 +25,13 @@ test('登录校验、错误提示、接口契约与退出', async ({ page }, tes
   await expectNoOverflow(page)
   await mkdir('artifacts', { recursive: true })
   await page.screenshot({ path: `artifacts/login-${testInfo.project.name}.png`, fullPage: true, animations: 'disabled' })
+  await page.getByText('企业登录', { exact: true }).click()
   await page.getByRole('button', { name: '登录', exact: true }).click()
+  await expect(page.getByText('请输入企业编码', { exact: true })).toBeVisible()
   await expect(page.getByText('请输入账号', { exact: true })).toBeVisible()
   await expect(page.getByText('请输入密码', { exact: true })).toBeVisible()
   await page.getByRole('button', { name: '忘记密码' }).click()
-  await expect(page.getByText('请联系门店管理员核实账号并重置密码。')).toBeVisible()
+  await expect(page.getByText('请联系企业管理员核实账号并重置密码；企业管理员请联系平台。')).toBeVisible()
   await page.getByRole('button', { name: '知道了' }).click()
   await page.getByRole('tab', { name: '短信登录' }).click()
   await expect(page.getByText('短信登录暂未开通')).toBeVisible()
@@ -39,11 +39,12 @@ test('登录校验、错误提示、接口契约与退出', async ({ page }, tes
   let accepted = false
   await page.route('**/api/user/login', async route => {
     expect(route.request().method()).toBe('POST')
-    expect(route.request().postDataJSON()).toEqual({ username: 'admin', password: 'admin123' })
-    await route.fulfill({ json: accepted
+    expect(route.request().postDataJSON()).toEqual({ loginType: 'TENANT', tenantCode: 'yulequan', username: 'admin', password: 'admin123' })
+    await route.fulfill({ status: accepted ? 200 : 401, json: accepted
       ? { code: 200, data: session }
-      : { code: 500, message: '用户名或密码错误', data: null } })
+      : { code: 401, message: '用户名或密码错误', data: null } })
   })
+  await page.getByLabel('企业编码', { exact: true }).fill('yulequan')
   await page.getByRole('textbox', { name: '账号', exact: true }).fill('admin')
   await page.getByLabel('密码', { exact: true }).fill('admin123')
   await page.getByRole('button', { name: '登录', exact: true }).click()
@@ -75,11 +76,12 @@ test('首页响应式、筛选、设置和移动导航', async ({ page }, testIn
   if (testInfo.project.name === 'mobile') {
     await page.getByRole('button', { name: '打开导航' }).click()
     const navigation = page.getByRole('navigation', { name: '移动端主导航' })
-    await expect(navigation.getByRole('menuitem')).toHaveCount(1)
+    await expect(navigation.getByRole('menuitem')).toHaveCount(4)
+    await expect(navigation.getByRole('link', { name: '订单管理', exact: true })).toBeVisible()
     await navigation.getByRole('link', { name: '首页' }).click()
     await expect(navigation).toBeHidden()
   } else {
-    await expect(page.getByLabel('主导航', { exact: true }).getByRole('menuitem')).toHaveCount(1)
+    await expect(page.getByLabel('主导航', { exact: true }).getByRole('menuitem')).toHaveCount(4)
   }
   await page.getByRole('radiogroup', { name: '目标范围' }).getByText('门店', { exact: true }).click()
   await expect(page.getByRole('radio', { name: '门店', exact: true })).toBeChecked()

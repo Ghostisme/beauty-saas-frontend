@@ -1,0 +1,89 @@
+.customers-page,
+.customer-visit-workspace { display: flex; flex: 1 0 auto; flex-direction: column; min-width: 0; gap: 14px; }
+.customer-tabs-bar { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 20px; min-width: 0; padding: 0 24px; background: var(--surface); border-radius: var(--radius); }
+.customer-tabs { flex: 1; min-width: 320px; }
+.customer-tabs > .ant-tabs-nav { margin: 0; }
+.customer-tabs > .ant-tabs-nav::before { border-bottom: 0; }
+.customer-tabs .ant-tabs-tab { padding-block: 16px; }
+.customer-tabs .ant-tabs-content-holder { display: none; }
+.customer-top-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; margin-left: auto; }
+.customer-top-actions .ant-btn { min-height: 32px; }
+.customer-panel { min-width: 0; background: var(--surface); border-radius: var(--radius); }
+.customer-filter-panel { display: flex; flex-direction: column; gap: 12px; padding: 24px; }
+.customer-filter-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 12px 20px; min-width: 0; padding-bottom: 18px; border-bottom: 1px dashed var(--border); }
+.customer-filter-toolbar > .ant-input-search { flex: 0 1 310px; min-width: 220px; }
+.customer-filter-toolbar > .ant-input:not(.ant-input-search .ant-input) { width: 190px; }
+.customer-filter-toolbar > .ant-select { width: 190px; }
+.customer-filter-toolbar > .ant-picker { width: 290px; }
+.customer-filter-label { flex: 0 0 auto; color: var(--text-tertiary); font-size: 12px; white-space: nowrap; }
+.customer-filter-row { display: flex; align-items: flex-start; gap: 14px; min-width: 0; }
+.customer-filter-content { display: flex; flex: 1; align-items: center; flex-wrap: wrap; gap: 8px 18px; min-width: 0; }
+.customer-filter-content > .ant-select { width: 190px; }
+.customer-filter-content > .ant-input { width: 220px; }
+.customer-choice-list { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; min-width: 0; }
+.customer-choice { min-height: 30px; padding: 4px 10px; border: 1px solid transparent; border-radius: 4px; background: transparent; color: var(--text-secondary); cursor: pointer; font-size: 12px; line-height: 20px; touch-action: manipulation; }
+.customer-choice:hover, .customer-choice:focus-visible { color: var(--primary); background: var(--primary-bg); outline: 0; }
+.customer-choice:focus-visible { box-shadow: 0 0 0 2px var(--primary-border); }
+.customer-choice.is-active { border-color: var(--primary-border); color: var(--primary); background: var(--primary-bg); }
+.customer-data-panel { display: flex; flex: 1 0 auto; flex-direction: column; min-width: 0; padding: 24px; }
+.customer-result-heading { padding: 0 0 20px; color: var(--text-secondary); font-size: 13px; }
+.customer-result-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.customer-cell-stack { display: flex; flex-direction: column; gap: 2px; line-height: 1.45; }
+.customer-cell-stack strong { color: var(--text); font-weight: 500; }
+.customer-cell-stack span { color: var(--text-secondary); font-size: 12px; }
+.customer-range-separator { color: var(--text-tertiary); }
+.customer-table-area { display: flex; flex: 1 0 auto; flex-direction: column; min-width: 0; }
+.customer-table-area .ant-table-wrapper, .customer-table-area .ant-table-container { min-width: 0; max-width: 100%; }
+.customer-table-area .ant-table-thead > tr > th { background: #fafafa; font-size: 13px; white-space: nowrap; }
+.customer-table-area .ant-table-thead > tr > th::before { display: none; }
+.customer-table-area .ant-table-cell { overflow-wrap: anywhere; font-size: 13px; }
+.customer-table-area .ant-table-placeholder { display: none; }
+.customer-table-state { display: flex; flex: 1 0 auto; flex-direction: column; align-items: center; justify-content: center; min-height: 310px; gap: 24px; padding: 36px 16px 46px; color: var(--text-tertiary); font-size: 12px; }
+.customer-table-state .goal-illustration { width: 180px; height: 139px; }
+.customer-table-footer { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 16px 22px; padding-top: 24px; color: var(--text-tertiary); font-size: 12px; }
+.customer-advanced-panel { min-height: 96px; }
+.customer-subtabs { padding: 0 24px; background: var(--surface); border-radius: var(--radius); }
+.customer-subtabs .ant-tabs { margin: 0; }
+.customer-subtabs .ant-tabs-nav { margin: 0; }
+.customer-subtabs .ant-tabs-nav::before { border-color: var(--border); }
+.customer-subtabs .ant-tabs-tab { padding-block: 14px; }
+.customer-rule-toolbar { flex-direction: row; align-items: center; justify-content: space-between; }
+.customer-followup-note { margin: 0; color: var(--text-tertiary); font-size: 12px; }
+.customer-followup-note strong { color: var(--primary); font-weight: 500; }
+.customer-form { display: flex; flex-direction: column; gap: 14px; }
+.customer-form label { display: flex; align-items: center; gap: 12px; color: var(--text-secondary); font-size: 13px; }
+.customer-form label > .ant-input, .customer-form label > .ant-select { flex: 1; min-width: 0; }
+.customer-form-hint { margin: 0; color: var(--text-tertiary); font-size: 12px; }
+.stored-value-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; padding: 18px 20px; border: 1px solid var(--primary-border); border-radius: calc(var(--radius) - 2px); background: color-mix(in srgb, var(--primary-bg) 38%, var(--surface)); }
+.stored-value-stats > div { display: flex; flex-direction: column; align-items: center; gap: 6px; color: var(--text-secondary); font-size: 12px; }
+.stored-value-stats strong { color: var(--text); font-size: 24px; font-weight: 500; line-height: 1.2; }
+.workspace[data-layout-mode='pad'] .customer-tabs-bar { padding-inline: 16px; }
+.workspace[data-layout-mode='pad'] .customer-filter-panel, .workspace[data-layout-mode='pad'] .customer-data-panel { padding: 20px 16px; }
+.workspace[data-layout-mode='pad'] .customer-choice { min-height: 40px; }
+.workspace[data-layout-mode='pad'] .customer-filter-toolbar > .ant-input-search, .workspace[data-layout-mode='pad'] .customer-filter-toolbar > .ant-input, .workspace[data-layout-mode='pad'] .customer-filter-toolbar > .ant-select, .workspace[data-layout-mode='pad'] .customer-filter-toolbar > .ant-picker, .workspace[data-layout-mode='pad'] .customer-filter-content > .ant-select, .workspace[data-layout-mode='pad'] .customer-filter-content > .ant-input { min-height: 40px; }
+@media (max-width: 767px) {
+  .customers-page, .customer-visit-workspace { gap: 12px; }
+  .customer-tabs-bar { padding: 0 12px 8px; gap: 0; }
+  .customer-tabs { flex-basis: 100%; min-width: 0; }
+  .customer-tabs .ant-tabs-tab { padding-block: 14px; font-size: 13px; }
+  .customer-tabs .ant-tabs-tab + .ant-tabs-tab { margin-left: 14px; }
+  .customer-top-actions { width: 100%; margin: 0 0 4px; }
+  .customer-top-actions .ant-btn { flex: 1; min-height: 40px; }
+  .customer-filter-panel, .customer-data-panel { padding: 16px 12px; }
+  .customer-filter-toolbar { align-items: stretch; gap: 10px; padding-bottom: 14px; }
+  .customer-filter-toolbar > .ant-input-search, .customer-filter-toolbar > .ant-input, .customer-filter-toolbar > .ant-select, .customer-filter-toolbar > .ant-picker { width: 100%; min-width: 0; flex-basis: 100%; }
+  .customer-filter-toolbar > .customer-filter-label { align-self: center; flex-basis: auto; }
+  .customer-filter-row { flex-direction: column; gap: 6px; }
+  .customer-filter-content { width: 100%; }
+  .customer-filter-content > .ant-select, .customer-filter-content > .ant-input { width: 100%; }
+  .customer-choice { min-height: 36px; }
+  .customer-subtabs { padding: 0 12px; overflow-x: auto; }
+  .customer-subtabs .ant-tabs { min-width: 410px; }
+  .customer-subtabs .ant-tabs-tab { padding-block: 13px; }
+  .customer-rule-toolbar { align-items: stretch; }
+  .customer-rule-toolbar > .ant-btn { align-self: flex-end; min-height: 40px; }
+  .stored-value-stats { grid-template-columns: 1fr; gap: 14px; padding: 14px; }
+  .customer-table-state { min-height: 250px; padding-block: 28px 36px; }
+  .customer-table-state .goal-illustration { width: 160px; height: 123px; }
+  .customer-table-footer { justify-content: center; }
+}

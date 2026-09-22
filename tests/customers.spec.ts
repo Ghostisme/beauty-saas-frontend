@@ -1,0 +1,44 @@
+import { expect, test } from '@playwright/test'
+import { installSession, mockProfile } from './fixtures/auth'
+
+test.beforeEach(async ({ page }) => {
+  await mockProfile(page)
+  await installSession(page)
+})
+
+test('顾客经营页签、顾客回访子页签和空状态', async ({ page }) => {
+  await page.goto('/customers')
+  await expect(page.getByRole('heading', { name: '顾客经营' })).toBeAttached()
+  await expect(page.getByRole('tab')).toHaveText(['顾客列表', '高级查询', '顾客寄存', '顾客回访', '顾客跟进'])
+  await expect(page.getByRole('columnheader')).toHaveText(['顾客信息', '顾客资产', '累计消费', '上次消费信息', '操作'])
+  await page.getByRole('tab', { name: '顾客回访', exact: true }).click()
+  await expect(page).toHaveURL(/\/customers\?tab=visit$/)
+  await expect(page.getByRole('tab', { name: '回访明细', exact: true })).toHaveAttribute('aria-selected', 'true')
+  await expect(page.getByRole('status', { name: '回访明细暂无相关数据' })).toBeVisible()
+  await page.getByRole('tab', { name: '回访到店', exact: true }).click()
+  await expect(page.getByRole('status', { name: '回访到店暂无相关数据' })).toBeVisible()
+  await page.getByRole('tab', { name: '回访计划规则', exact: true }).click()
+  await expect(page).toHaveURL(/visitTab=rules$/)
+  await expect(page.getByRole('button', { name: '新增回访计划', exact: true })).toBeVisible()
+  await expect(page.getByRole('status', { name: '回访计划规则暂无相关数据' })).toBeVisible()
+  await page.getByRole('tab', { name: '顾客跟进', exact: true }).click()
+  await expect(page.getByRole('status', { name: '顾客跟进暂无相关数据' })).toBeVisible()
+  await page.getByRole('tab', { name: '顾客寄存', exact: true }).click()
+  await expect(page.getByText('产品寄存余量', { exact: true })).toBeVisible()
+  await expect(page.getByRole('columnheader')).toHaveText(['顾客信息', '门店信息', '操作信息', '品项信息', '备注', '操作'])
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+})
+
+test('首页顾客回访提醒跳转顾客跟进，库存预警打开抽屉', async ({ page }) => {
+  await page.goto('/')
+  await page.getByRole('button', { name: '顾客回访提醒', exact: true }).click()
+  await expect(page).toHaveURL(/\/customers\?tab=followup$/)
+  await page.goto('/')
+  await expect(page).toHaveURL(/\/$/)
+  await page.getByRole('button', { name: '库存预警', exact: true }).click()
+  await expect(page.getByRole('dialog', { name: '库存预警' })).toBeVisible()
+  await expect(page.getByRole('columnheader')).toHaveText(['#', '所属仓库', '产品类别', '产品信息', '单位', '库存数量', '库存下限', '预警值', '操作'])
+  await expect(page.getByRole('status', { name: '库存预警列表暂无相关数据' })).toBeVisible()
+  await page.getByRole('button', { name: '返回首页' }).click()
+  await expect(page).toHaveURL(/\/$/)
+})

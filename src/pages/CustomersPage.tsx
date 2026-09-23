@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
-import { App, Button, DatePicker, Input, Modal, Pagination, Result, Select, Table, Tabs } from 'antd'
+import { App, Button, DatePicker, Input, Modal, Pagination, Result, Select, Table, Tabs, Tag } from 'antd'
 import type { TableColumnsType } from 'antd'
 import { DownloadOutlined, PlusOutlined, QuestionCircleOutlined, SearchOutlined } from '@ant-design/icons'
 import { useSearchParams } from 'react-router-dom'
@@ -77,7 +77,7 @@ function EmptyTable<T extends EmptyRow>({
   return <div className="customer-table-area">
     <Table<T> aria-label={ariaLabel} rowKey="id" columns={columns} dataSource={rows} pagination={false} scroll={{ x: width }} showHeader={showHeader} locale={{ emptyText: null }} />
     {empty && <div className="customer-table-state" role="status" aria-label={`${ariaLabel}暂无相关数据`}><GoalEmpty /><span>暂无相关数据</span></div>}
-    <div className="customer-table-footer"><span>{footerLabel}</span><Pagination size="small" current={1} pageSize={10} total={rows.length} hideOnSinglePage /></div>
+    <div className="customer-table-footer"><span>{footerLabel}</span><Pagination size="small" defaultCurrent={1} pageSize={10} total={rows.length} hideOnSinglePage /></div>
   </div>
 }
 
@@ -128,6 +128,7 @@ function CustomerListPanel({ records }: { records: CustomerRecord[] }) {
 }
 
 function AdvancedSearchPanel() {
+  const { message } = App.useApp()
   const [category, setCategory] = useState('基本信息')
   const [condition, setCondition] = useState('性别')
   const conditionMap: Record<string, string[]> = {
@@ -145,8 +146,11 @@ function AdvancedSearchPanel() {
   ]
   return <>
     <div className="customer-panel customer-advanced-panel">
-      <FilterRow label="条件分类"><div className="customer-choice-list">{Object.keys(conditionMap).map(item => <button type="button" key={item} className={`customer-choice${category === item ? ' is-active' : ''}`} aria-pressed={category === item} onClick={() => { setCategory(item); setCondition(conditionMap[item][0]) }}>{item}</button>)}</div></FilterRow>
-      <FilterRow label="选择条件"><div className="customer-choice-list">{conditionMap[category].map(item => <button type="button" key={item} className={`customer-choice${condition === item ? ' is-active' : ''}`} aria-pressed={condition === item} onClick={() => setCondition(item)}>{item}</button>)}</div></FilterRow>
+      <div className="advanced-search-head"><div><h2>高级查询</h2><p>先选择信息分类，再选择具体查询项</p></div><Tag color="blue">当前：{category} / {condition}</Tag></div>
+      <div className="advanced-search-section"><span className="advanced-search-label">条件分类</span><div className="advanced-search-options" role="tablist" aria-label="高级查询条件分类">{Object.keys(conditionMap).map(item => <button type="button" role="tab" key={item} className={`advanced-search-option${category === item ? ' is-active' : ''}`} aria-selected={category === item} onClick={() => { setCategory(item); setCondition(conditionMap[item][0]) }}>{item}<span>{conditionMap[item].length}</span></button>)}</div></div>
+      <div className="advanced-search-divider" />
+      <div className="advanced-search-section"><span className="advanced-search-label">选择条件</span><div className="advanced-search-options">{conditionMap[category].map(item => <button type="button" key={item} className={`advanced-search-option${condition === item ? ' is-active' : ''}`} aria-pressed={condition === item} onClick={() => setCondition(item)}>{item}</button>)}</div></div>
+      <div className="advanced-search-actions"><Button type="primary" onClick={() => void message.success(`已应用：${category} / ${condition}`)}>应用条件</Button><Button onClick={() => { setCategory('基本信息'); setCondition('性别') }}>重置</Button></div>
     </div>
     <div className="customer-panel customer-data-panel"><EmptyTable ariaLabel="高级查询结果" columns={columns} /></div>
   </>

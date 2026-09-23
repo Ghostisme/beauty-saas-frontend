@@ -29,6 +29,18 @@ test('顾客经营页签、顾客回访子页签和空状态', async ({ page }) 
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
 })
 
+test('高级查询条件分组有明确选中态并可应用', async ({ page }) => {
+  await page.goto('/customers?tab=advanced')
+  await expect(page.getByRole('heading', { name: '高级查询', exact: true })).toBeVisible()
+  await expect(page.locator('.advanced-search-option').filter({ hasText: '基本信息' })).toHaveClass(/is-active/)
+  await page.locator('.advanced-search-option').filter({ hasText: '资产信息' }).click()
+  await expect(page.locator('.advanced-search-option').filter({ hasText: '资产信息' })).toHaveClass(/is-active/)
+  await page.getByRole('button', { name: '会员卡', exact: true }).click()
+  await expect(page.getByRole('button', { name: '会员卡', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await page.getByRole('button', { name: '应用条件', exact: true }).click()
+  await expect(page.getByText('已应用：资产信息 / 会员卡', { exact: true })).toBeVisible()
+})
+
 test('首页顾客回访提醒跳转顾客跟进，库存预警打开抽屉', async ({ page }) => {
   await page.goto('/')
   await page.getByRole('button', { name: '顾客回访提醒', exact: true }).click()

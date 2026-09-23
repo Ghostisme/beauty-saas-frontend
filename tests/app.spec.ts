@@ -76,12 +76,12 @@ test('首页响应式、筛选、设置和移动导航', async ({ page }, testIn
   if (testInfo.project.name === 'mobile') {
     await page.getByRole('button', { name: '打开导航' }).click()
     const navigation = page.getByRole('navigation', { name: '移动端主导航' })
-    await expect(navigation.getByRole('menuitem')).toHaveCount(5)
+    await expect(navigation.getByRole('menuitem')).toHaveCount(6)
     await expect(navigation.getByRole('link', { name: '订单管理', exact: true })).toBeVisible()
     await navigation.getByRole('link', { name: '首页' }).click()
     await expect(navigation).toBeHidden()
   } else {
-    await expect(page.getByLabel('主导航', { exact: true }).getByRole('menuitem')).toHaveCount(5)
+    await expect(page.getByLabel('主导航', { exact: true }).getByRole('menuitem')).toHaveCount(6)
   }
   await page.getByRole('radiogroup', { name: '目标范围' }).getByText('门店', { exact: true }).click()
   await expect(page.getByRole('radio', { name: '门店', exact: true })).toBeChecked()

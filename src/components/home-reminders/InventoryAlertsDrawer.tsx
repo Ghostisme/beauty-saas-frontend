@@ -9,7 +9,7 @@ export function InventoryAlertsDrawer({ open, onClose }: { open: boolean; onClos
       onClose={onClose}
       aria-label="库存预警"
       placement="right"
-      width="80%"
+      size="80%"
       title={
         <div className="inventory-drawer-title">
           <Button type="text" icon={<ArrowLeftOutlined />} aria-label="返回首页" onClick={onClose} />

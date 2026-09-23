@@ -3,6 +3,7 @@ import { Input, Select, Table } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import { SearchOutlined } from '@ant-design/icons'
 import { GoalEmpty } from '@/components/GoalEmpty'
+import '@/styles/inventory.css'
 
 export interface InventoryRow {
   id: string
@@ -38,8 +39,8 @@ export function InventoryAlertsContent() {
   return (
     <div className="inventory-content">
       <div className="inventory-filters">
-        <Select aria-label="仓库" value={warehouse} onChange={setWarehouse} placeholder="请选择门店/仓库" allowClear options={[]} />
-        <Select aria-label="品类" value={category} onChange={setCategory} placeholder="请选择分类" allowClear options={[]} />
+        <div className="inventory-filter-field"><span>仓库</span><Select aria-label="仓库" value={warehouse} onChange={setWarehouse} placeholder="请选择门店/仓库" allowClear options={[]} /></div>
+        <div className="inventory-filter-field"><span>品类</span><Select aria-label="品类" value={category} onChange={setCategory} placeholder="请选择分类" allowClear options={[]} /></div>
         <Input.Search aria-label="搜索产品" value={keyword} onChange={event => setKeyword(event.target.value)} placeholder="输入产品名称/编号" allowClear enterButton={<SearchOutlined />} />
       </div>
       <div className="inventory-table-area">

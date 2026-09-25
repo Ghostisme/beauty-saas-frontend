@@ -134,8 +134,8 @@
   .customer-search-combo .ant-select { width: 34%; }
   .customer-search-combo .ant-input-search { width: 66%; }
   .customer-date-filter { width: 100%; min-width: 0; flex-basis: 100%; }
-  .customer-date-filter .ant-select { width: 34%; }
-  .customer-date-filter .ant-picker { width: 66%; }
+  .customer-date-filter .ant-select { width: 44%; }
+  .customer-date-filter .ant-picker { width: 56%; }
   .customer-number-range { width: 100%; }
   .customer-number-range .ant-input-number { flex: 1; width: auto; }
   .customer-filter-toolbar > .customer-filter-label { align-self: center; flex-basis: auto; }

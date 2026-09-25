@@ -1,11 +1,9 @@
 import { useState } from 'react'
 import type { ReactNode } from 'react'
-import { Button, DatePicker, Input, Result, Select, Space, Table } from 'antd'
+import { DatePicker, Input, Select, Space, Table } from 'antd'
 import type { TableColumnsType } from 'antd'
-import { ArrowLeftOutlined } from '@ant-design/icons'
-import { useNavigate } from 'react-router-dom'
+import dayjs from 'dayjs'
 import { GoalEmpty } from '@/components/GoalEmpty'
-import { useAuth } from '@/context/AuthContext'
 import '@/styles/customers.css'
 
 interface EmptyReminderRow { id: string }
@@ -19,15 +17,15 @@ function FilterRow({ label, children }: { label: string; children: ReactNode }) 
   return <div className="customer-filter-row"><span className="customer-filter-label">{label}：</span><div className="customer-filter-content">{children}</div></div>
 }
 
-function ChoiceRow({ label, options }: { label: string; options: string[] }) {
-  const [value, setValue] = useState(options[0])
+function ChoiceRow({ label, options, initial = options[0] }: { label: string; options: string[]; initial?: string }) {
+  const [value, setValue] = useState(initial)
   return <FilterRow label={label}><div className="customer-choice-list">{options.map(option => <button type="button" key={option} className={`customer-choice${value === option ? ' is-active' : ''}`} aria-pressed={value === option} onClick={() => setValue(option)}>{option}</button>)}</div></FilterRow>
 }
 
 function VisitDateFilter() {
   return <Space.Compact className="customer-date-filter">
     <Select aria-label="回访时间类型" defaultValue="planned" options={[{ value: 'planned', label: '计划回访时间' }]} />
-    <DatePicker.RangePicker aria-label="计划回访时间" placeholder={['开始日期', '结束日期']} inputReadOnly classNames={{ popup: { root: 'responsive-range-popup' } }} />
+    <DatePicker.RangePicker aria-label="计划回访时间" defaultValue={[dayjs(), dayjs().add(3, 'day')]} placeholder={['开始日期', '结束日期']} inputReadOnly classNames={{ popup: { root: 'responsive-range-popup' } }} />
   </Space.Compact>
 }
 
@@ -47,15 +45,8 @@ function EmptyReminderTable() {
   </div>
 }
 
-export default function CustomerReminderPage() {
-  const { session, can } = useAuth()
-  const navigate = useNavigate()
-  if (!session?.userInfo.platformAdmin && !can('home:read')) return <Result status="403" title="暂无顾客回访提醒权限" subTitle="请联系企业管理员分配首页或顾客经营权限。" />
-  return <section className="customers-page customer-reminder-page" aria-labelledby="customer-reminder-title">
-    <div className="customer-reminder-header customer-panel">
-      <Button type="text" icon={<ArrowLeftOutlined />} aria-label="返回顾客经营" onClick={() => navigate('/customers')} />
-      <h1 id="customer-reminder-title">顾客回访提醒</h1>
-    </div>
+export function CustomerReminderContent() {
+  return <>
     <div className="customer-panel customer-filter-panel customer-reminder-filter-panel">
       <div className="customer-filter-toolbar">
         <Select aria-label="回访门店" placeholder="请选择门店" allowClear options={storeOptions} />
@@ -66,9 +57,9 @@ export default function CustomerReminderPage() {
         <VisitDateFilter />
       </div>
       <ChoiceRow label="回访场景" options={sceneOptions} />
-      <ChoiceRow label="回访状态" options={statusOptions} />
+      <ChoiceRow label="回访状态" options={statusOptions} initial="待回访(0)" />
       <ChoiceRow label="超时状态" options={timeoutOptions} />
     </div>
     <EmptyReminderTable />
-  </section>
+  </>
 }

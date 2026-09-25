@@ -6,9 +6,10 @@ import { DownloadOutlined, DownOutlined, PlusOutlined, QuestionCircleOutlined, S
 import { useSearchParams } from 'react-router-dom'
 import { GoalEmpty } from '@/components/GoalEmpty'
 import { useAuth } from '@/context/AuthContext'
+import { CustomerReminderContent } from '@/pages/CustomerReminderPage'
 import '@/styles/customers.css'
 
-type CustomerTab = 'list' | 'advanced' | 'stored' | 'visit' | 'followup'
+type CustomerTab = 'list' | 'advanced' | 'stored' | 'visit' | 'followup' | 'reminders'
 type VisitTab = 'detail' | 'visit' | 'rules'
 
 interface EmptyRow { id: string }
@@ -37,6 +38,7 @@ const tabs: { key: CustomerTab; label: string }[] = [
   { key: 'stored', label: '顾客寄存' },
   { key: 'visit', label: '顾客回访' },
   { key: 'followup', label: '顾客跟进' },
+  { key: 'reminders', label: '回访提醒' },
 ]
 
 const storeOptions = [{ value: 'current', label: '当前门店' }]
@@ -106,6 +108,13 @@ function VisitDateFilter() {
   return <Space.Compact className="customer-date-filter">
     <Select aria-label="回访时间类型" defaultValue="planned" options={[{ value: 'planned', label: '计划回访时间' }]} />
     <DatePicker.RangePicker aria-label="计划回访时间" placeholder={['开始日期', '结束日期']} inputReadOnly classNames={{ popup: { root: 'responsive-range-popup' } }} />
+  </Space.Compact>
+}
+
+function VisitEmployeeFilter() {
+  return <Space.Compact className="customer-search-combo">
+    <Select aria-label="回访员工类型" defaultValue="employee" options={[{ value: 'employee', label: '员工' }, { value: 'store', label: '门店' }]} />
+    <Input.Search aria-label="搜索回访员工" placeholder="输入员工姓名/工号" allowClear />
   </Space.Compact>
 }
 
@@ -207,7 +216,7 @@ function StoredValuePanel() {
 function FollowupFilters({ variant, onEditRule }: { variant: VisitTab; onEditRule?: () => void }) {
   if (variant === 'rules') return <div className="customer-panel customer-filter-panel customer-rule-toolbar"><FilterRow label="回访门店"><Select aria-label="回访门店" placeholder="请选择回访门店" allowClear options={storeOptions} /></FilterRow><Button type="primary" icon={<PlusOutlined />} aria-label="新增回访计划" onClick={onEditRule}>新增回访计划</Button></div>
   return <div className="customer-panel customer-filter-panel">
-    <FilterToolbar><Select aria-label="回访门店" placeholder="请选择门店" allowClear options={storeOptions} /><Space.Compact className="customer-search-combo"><Select aria-label="回访员工类型" defaultValue="employee" options={[{ value: 'employee', label: '员工' }, { value: 'store', label: '门店' }]} /><Input.Search aria-label="搜索回访员工" placeholder="输入员工姓名/工号" allowClear /></Space.Compact><VisitDateFilter /></FilterToolbar>
+    <FilterToolbar><Select aria-label="回访门店" placeholder="请选择门店" allowClear options={storeOptions} /><VisitEmployeeFilter /><VisitDateFilter /></FilterToolbar>
     <ChoiceRow label="回访场景" options={['全部', '消费品项目', '顾客生日', '新建顾客', '长期未消费', '手动创建']} />
     {variant === 'detail' ? <><ChoiceRow label="回访状态" options={['全部', '待回访(0)', '已回访(0)', '已作废(0)']} /><ChoiceRow label="超时状态" options={['全部', '未超时', '已超时']} /></> : <p className="customer-followup-note">顾客回访后 <strong>15</strong> 天内到店消费计为回访后到店，超出限定时间范围不计算。<Button type="link" size="small" onClick={onEditRule}>修改</Button></p>}
   </div>
@@ -317,11 +326,13 @@ export default function CustomersPage() {
     ? <AdvancedSearchPanel />
     : tab === 'stored'
       ? <StoredValuePanel />
-      : tab === 'visit'
+    : tab === 'visit'
         ? <CustomerVisitPanel visitTab={visitTab} onChangeTab={setVisitTab} onEditRule={() => setRuleModalOpen(true)} rules={visitRules} />
         : tab === 'followup'
           ? <CustomerFollowupPanel records={records} />
-          : <CustomerListPanel records={records} />
+          : tab === 'reminders'
+            ? <CustomerReminderContent />
+            : <CustomerListPanel records={records} />
   if (!session?.userInfo.platformAdmin && !can('home:read')) return <Result status="403" title="暂无顾客查看权限" subTitle="请联系企业管理员分配首页或顾客经营权限。" />
   return <section className="customers-page" aria-labelledby="customers-title">
     <h1 id="customers-title" className="visually-hidden">顾客经营</h1>

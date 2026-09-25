@@ -65,7 +65,7 @@ export default function HomePage() {
 
   function openReminder(item: Omit<Reminder, 'icon'>, Icon: ComponentType) {
     if (item.key === 'followup') {
-      navigate('/customer-reminders')
+      navigate('/customers?tab=reminders')
       return
     }
     if (item.key === 'stock') {

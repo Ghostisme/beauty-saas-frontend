@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import dayjs from 'dayjs'
 import { installSession, mockProfile } from './fixtures/auth'
 
 test.beforeEach(async ({ page }) => {
@@ -9,7 +10,10 @@ test.beforeEach(async ({ page }) => {
 test('顾客经营页签、顾客回访子页签和顾客跟进工作区', async ({ page }) => {
   await page.goto('/customers')
   await expect(page.getByRole('heading', { name: '顾客经营' })).toBeAttached()
-  await expect(page.getByRole('tab')).toHaveText(['顾客列表', '高级查询', '顾客寄存', '顾客回访', '顾客跟进'])
+  await expect(page.getByRole('tab')).toHaveText(['顾客列表', '高级查询', '顾客寄存', '顾客回访', '顾客跟进', '回访提醒'])
+  if ((await page.viewportSize())!.width < 768) {
+    for (const tab of await page.getByRole('tab').all()) await expect(tab).toBeInViewport()
+  }
   await expect(page.getByRole('columnheader')).toHaveText(['顾客信息', '顾客资产', '累计消费', '上次消费信息', '操作'])
   await expect(page.locator('.customer-card-filter').getByText('持卡', { exact: true })).toBeVisible()
   await expect(page.getByRole('textbox', { name: '搜索会员卡' })).toBeVisible()
@@ -36,6 +40,12 @@ test('顾客经营页签、顾客回访子页签和顾客跟进工作区', async
   await expect(visitDateFilter.getByPlaceholder('开始日期')).toBeVisible()
   await expect(page.getByRole('status', { name: '回访明细暂无相关数据' })).toBeVisible()
   await page.getByRole('tab', { name: '回访到店', exact: true }).click()
+  await expect(page).toHaveURL(/\/customers\?tab=visit&visitTab=visit$/)
+  const arrivedVisitEmployeeFilter = page.locator('.customer-search-combo')
+  await expect(arrivedVisitEmployeeFilter.getByRole('combobox', { name: '回访员工类型' })).toBeVisible()
+  await expect(arrivedVisitEmployeeFilter.locator('input[placeholder="输入员工姓名/工号"]')).toBeVisible()
+  await expect(arrivedVisitEmployeeFilter.locator('.ant-input-search-btn')).toBeVisible()
+  await expect(page.locator('.customer-date-filter').getByRole('combobox', { name: '回访时间类型' })).toBeVisible()
   await expect(page.getByRole('status', { name: '回访到店暂无相关数据' })).toBeVisible()
   await page.getByRole('tab', { name: '回访计划规则', exact: true }).click()
   await expect(page).toHaveURL(/visitTab=rules$/)
@@ -50,6 +60,9 @@ test('顾客经营页签、顾客回访子页签和顾客跟进工作区', async
   await page.getByRole('tab', { name: '顾客寄存', exact: true }).click()
   await expect(page.getByText('产品寄存余量', { exact: true })).toBeVisible()
   await expect(page.getByRole('columnheader')).toHaveText(['顾客信息', '门店信息', '操作信息', '品项信息', '备注', '操作'])
+  await page.getByRole('tab', { name: '回访提醒', exact: true }).click()
+  await expect(page).toHaveURL(/\/customers\?tab=reminders$/)
+  await expect(page.getByRole('tab', { name: '回访提醒', exact: true })).toHaveAttribute('aria-selected', 'true')
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
 })
 
@@ -64,18 +77,25 @@ test('高级查询条件分组有明确选中态并可应用', async ({ page }) 
   await expect(page.getByRole('columnheader', { name: '顾客信息', exact: true })).toBeVisible()
 })
 
-test('首页顾客回访提醒打开独立模块，库存预警打开抽屉', async ({ page }) => {
+test('首页顾客回访提醒进入顾客页签，库存预警打开抽屉', async ({ page }) => {
   await page.goto('/')
   await page.getByRole('button', { name: '顾客回访提醒', exact: true }).click()
-  await expect(page).toHaveURL(/\/customer-reminders$/)
-  await expect(page.getByRole('heading', { name: '顾客回访提醒' })).toBeVisible()
+  await expect(page).toHaveURL(/\/customers\?tab=reminders$/)
+  await expect(page.getByRole('tab', { name: '回访提醒', exact: true })).toHaveAttribute('aria-selected', 'true')
   await expect(page.getByRole('status', { name: '顾客回访提醒暂无相关数据' })).toBeVisible()
   await expect(page.getByRole('columnheader')).toHaveText(['顾客信息', '回访场景', '计划回访时间', '回访员工', '状态', '操作'])
   await expect(page.getByRole('combobox', { name: '回访门店' })).toBeVisible()
   await expect(page.getByRole('combobox', { name: '回访员工类型' })).toBeVisible()
   await expect(page.locator('.customer-search-combo .ant-input-search-btn')).toBeVisible()
+  await expect(page.locator('.customer-search-combo .ant-btn-primary')).toHaveCount(0)
+  await expect(page.getByPlaceholder('输入员工姓名/工号')).toBeVisible()
   await expect(page.locator('.customer-date-filter').getByRole('combobox', { name: '回访时间类型' })).toBeVisible()
+  await expect(page.locator('.customer-date-filter').getByPlaceholder('开始日期')).toHaveValue(dayjs().format('YYYY-MM-DD'))
+  await expect(page.locator('.customer-date-filter').getByPlaceholder('结束日期')).toHaveValue(dayjs().add(3, 'day').format('YYYY-MM-DD'))
+  await expect(page.getByRole('button', { name: '待回访(0)', exact: true })).toHaveAttribute('aria-pressed', 'true')
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  await page.goto('/customer-reminders')
+  await expect(page).toHaveURL(/\/customers\?tab=reminders$/)
   await page.goto('/')
   await expect(page).toHaveURL(/\/$/)
   await page.getByRole('button', { name: '库存预警', exact: true }).click()

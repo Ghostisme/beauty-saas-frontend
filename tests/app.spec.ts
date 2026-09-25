@@ -76,12 +76,14 @@ test('首页响应式、筛选、设置和移动导航', async ({ page }, testIn
   if (testInfo.project.name === 'mobile') {
     await page.getByRole('button', { name: '打开导航' }).click()
     const navigation = page.getByRole('navigation', { name: '移动端主导航' })
-    await expect(navigation.getByRole('menuitem')).toHaveCount(6)
+    await expect(navigation.getByRole('menuitem')).toHaveCount(7)
+    await expect(navigation.getByRole('link', { name: '系统日志', exact: true })).toHaveCount(0)
     await expect(navigation.getByRole('link', { name: '订单管理', exact: true })).toBeVisible()
     await navigation.getByRole('link', { name: '首页' }).click()
     await expect(navigation).toBeHidden()
   } else {
-    await expect(page.getByLabel('主导航', { exact: true }).getByRole('menuitem')).toHaveCount(6)
+    await expect(page.getByLabel('主导航', { exact: true }).getByRole('menuitem')).toHaveCount(7)
+    await expect(page.getByLabel('主导航', { exact: true }).getByRole('link', { name: '系统日志', exact: true })).toHaveCount(0)
   }
   await page.getByRole('radiogroup', { name: '目标范围' }).getByText('门店', { exact: true }).click()
   await expect(page.getByRole('radio', { name: '门店', exact: true })).toBeChecked()
@@ -106,8 +108,9 @@ test('首页响应式、筛选、设置和移动导航', async ({ page }, testIn
   await birthdayDialog.getByRole('button', { name: '关闭', exact: true }).click()
   await expect(birthdayDialog).toBeHidden()
   await page.getByRole('button', { name: '顾客回访提醒', exact: true }).click()
-  await expect(page).toHaveURL(/\/customers\?tab=followup$/)
-  await expect(page.getByRole('tab', { name: '顾客跟进', exact: true })).toHaveAttribute('aria-selected', 'true')
+  await expect(page).toHaveURL(/\/customer-reminders$/)
+  await expect(page.getByRole('heading', { name: '顾客回访提醒' })).toBeVisible()
+  await expect(page.getByRole('status', { name: '顾客回访提醒暂无相关数据' })).toBeVisible()
   await page.getByRole('button', { name: '设置', exact: true }).click()
   await expect(page.getByRole('menu', { name: '设置菜单' })).toBeVisible()
   await page.getByRole('menuitem', { name: '显示设置' }).click()

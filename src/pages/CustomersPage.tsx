@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
-import { App, Button, DatePicker, Input, Modal, Pagination, Result, Select, Table, Tabs, Tag } from 'antd'
-import type { TableColumnsType } from 'antd'
-import { DownloadOutlined, PlusOutlined, QuestionCircleOutlined, SearchOutlined } from '@ant-design/icons'
+import { App, Button, Checkbox, DatePicker, Dropdown, Input, InputNumber, Modal, Pagination, Result, Select, Space, Table, Tabs } from 'antd'
+import type { MenuProps, TableColumnsType } from 'antd'
+import { DownloadOutlined, DownOutlined, PlusOutlined, QuestionCircleOutlined, SearchOutlined } from '@ant-design/icons'
 import { useSearchParams } from 'react-router-dom'
 import { GoalEmpty } from '@/components/GoalEmpty'
 import { useAuth } from '@/context/AuthContext'
@@ -43,6 +43,23 @@ const storeOptions = [{ value: 'current', label: '当前门店' }]
 const sourceOptions = [{ value: 'offline', label: '线下到店' }, { value: 'online', label: '线上渠道' }]
 const storageTypeOptions = [{ value: 'product', label: '产品寄存' }, { value: 'service', label: '项目寄存' }]
 
+const defaultCustomerRecords: CustomerRecord[] = [
+  { id: 'customer-1', name: '模拟顾客A', phone: '13800000001', code: 'MOCK-0001', level: '无等级', cardCount: 0, balance: 0, spent: 0, visitCount: 0, lastVisit: '' },
+  { id: 'customer-2', name: '模拟顾客B', phone: '13800000002', code: 'MOCK-0002', level: '无等级', cardCount: 0, balance: 0, spent: 0, visitCount: 0, lastVisit: '' },
+  { id: 'customer-3', name: '模拟顾客C', phone: '13800000003', code: 'MOCK-0003', level: '无等级', cardCount: 0, balance: 0, spent: 0, visitCount: 0, lastVisit: '' },
+]
+
+const followupAssignees = [
+  { key: 'unassigned-tracker', label: '未分配跟踪员工', count: 1 },
+  { key: 'unassigned-adviser', label: '未分配专属顾问', count: 1 },
+  { key: 'owner', label: '负责人', count: 0 },
+  { key: 'mock-staff-a', label: '模拟员工A', count: 0 },
+]
+
+function maskPhone(phone: string) {
+  return phone.length >= 7 ? `${phone.slice(0, 3)}****${phone.slice(-4)}` : phone
+}
+
 function currentQuery(change: (params: URLSearchParams) => void) {
   const params = new URLSearchParams(window.location.search)
   change(params)
@@ -53,9 +70,9 @@ function FilterRow({ label, children }: { label: string; children: ReactNode }) 
   return <div className="customer-filter-row"><span className="customer-filter-label">{label}：</span><div className="customer-filter-content">{children}</div></div>
 }
 
-function ChoiceRow({ label, options, initial = '全部' }: { label: string; options: string[]; initial?: string }) {
+function ChoiceRow({ label, options, initial = '全部', customInput }: { label: string; options: string[]; initial?: string; customInput?: 'date' | 'number' }) {
   const [value, setValue] = useState(initial)
-  return <FilterRow label={label}><div className="customer-choice-list">{options.map(option => <button type="button" key={option} className={`customer-choice${value === option ? ' is-active' : ''}`} aria-pressed={value === option} onClick={() => setValue(option)}>{option}</button>)}</div></FilterRow>
+  return <FilterRow label={label}><div className="customer-choice-list">{options.map(option => <button type="button" key={option} className={`customer-choice${value === option ? ' is-active' : ''}`} aria-pressed={value === option} onClick={() => setValue(option)}>{option}</button>)}</div>{value === '自定义' && customInput === 'date' && <DatePicker.RangePicker aria-label={`${label}自定义范围`} placeholder={['开始日期', '结束日期']} inputReadOnly classNames={{ popup: { root: 'responsive-range-popup' } }} />}{value === '自定义' && customInput === 'number' && <Space.Compact className="customer-number-range"><InputNumber aria-label={`${label}最小值`} min={0} placeholder="最小值" /><span className="customer-range-separator">~</span><InputNumber aria-label={`${label}最大值`} min={0} placeholder="最大值" /></Space.Compact>}</FilterRow>
 }
 
 function EmptyTable<T extends EmptyRow>({
@@ -77,12 +94,19 @@ function EmptyTable<T extends EmptyRow>({
   return <div className="customer-table-area">
     <Table<T> aria-label={ariaLabel} rowKey="id" columns={columns} dataSource={rows} pagination={false} scroll={{ x: width }} showHeader={showHeader} locale={{ emptyText: null }} />
     {empty && <div className="customer-table-state" role="status" aria-label={`${ariaLabel}暂无相关数据`}><GoalEmpty /><span>暂无相关数据</span></div>}
-    <div className="customer-table-footer"><span>{footerLabel}</span><Pagination size="small" defaultCurrent={1} pageSize={10} total={rows.length} hideOnSinglePage /></div>
+    <div className="customer-table-footer"><span>{footerLabel}</span><Pagination size="small" defaultCurrent={1} pageSize={10} total={rows.length} showSizeChanger={false} hideOnSinglePage={false} /></div>
   </div>
 }
 
 function FilterToolbar({ children }: { children: ReactNode }) {
   return <div className="customer-filter-toolbar">{children}</div>
+}
+
+function VisitDateFilter() {
+  return <Space.Compact className="customer-date-filter">
+    <Select aria-label="回访时间类型" defaultValue="planned" options={[{ value: 'planned', label: '计划回访时间' }]} />
+    <DatePicker.RangePicker aria-label="计划回访时间" placeholder={['开始日期', '结束日期']} inputReadOnly classNames={{ popup: { root: 'responsive-range-popup' } }} />
+  </Space.Compact>
 }
 
 function TopActions({ children }: { children: ReactNode }) {
@@ -91,34 +115,38 @@ function TopActions({ children }: { children: ReactNode }) {
 
 function CustomerListPanel({ records }: { records: CustomerRecord[] }) {
   const [keyword, setKeyword] = useState('')
+  const [cardFilterType, setCardFilterType] = useState('holding')
+  const [cardName, setCardName] = useState('')
   const visibleRecords = useMemo(() => {
     const normalized = keyword.trim().toLowerCase()
     if (!normalized) return records
     return records.filter(row => `${row.name}${row.phone}${row.code}`.toLowerCase().includes(normalized))
   }, [keyword, records])
   const columns: TableColumnsType<CustomerRecord> = [
-    { title: '顾客信息', key: 'customer', width: 300, render: (_, row) => <div className="customer-cell-stack"><strong>{row.name}</strong><span>{row.phone}</span><span>顾客编号：{row.code}</span><span>{row.level}</span></div> },
+    { title: '顾客信息', key: 'customer', width: 300, render: (_, row) => <div className="customer-cell-stack"><strong>{row.name || maskPhone(row.phone)}</strong><span>{row.phone}</span><span>顾客编号：{row.code}</span><span>{row.level}</span></div> },
     { title: '顾客资产', key: 'assets', width: 260, render: (_, row) => <div className="customer-cell-stack"><span>持卡：{row.cardCount}张</span><span>卡余额：{row.balance.toFixed(2)}元</span><span>次卡余量：0次</span></div> },
     { title: '累计消费', key: 'spent', width: 220, render: (_, row) => <div className="customer-cell-stack"><span>金额：{row.spent.toFixed(2)}元</span><span>次数：{row.visitCount}次</span></div> },
     { title: '上次消费信息', key: 'lastOrder', width: 300, render: (_, row) => row.lastVisit || '暂无消费信息' },
-    { title: '操作', key: 'actions', width: 120, render: () => <Button type="link" size="small">详情</Button> },
+    { title: '操作', key: 'actions', width: 150, render: () => <div className="customer-row-actions"><Button type="link" size="small">详情</Button><Button type="link" size="small">更多</Button></div> },
   ]
   return <>
     <div className="customer-panel customer-filter-panel">
       <FilterToolbar>
         <span className="customer-filter-label">基础搜索：</span>
         <Input.Search aria-label="搜索顾客" value={keyword} onChange={event => setKeyword(event.target.value)} placeholder="输入顾客姓名/手机号/编号" allowClear enterButton={<SearchOutlined />} />
-        <Select aria-label="会员卡状态" defaultValue="all" options={[{ value: 'all', label: '持卡' }, { value: 'none', label: '未持卡' }]} />
-        <Input placeholder="输入卡名称搜索" aria-label="搜索会员卡" />
+        <Space.Compact className="customer-card-filter">
+          <Select aria-label="会员卡筛选类型" value={cardFilterType} onChange={setCardFilterType} options={[{ value: 'holding', label: '持卡' }, { value: 'not-holding', label: '未持卡' }]} />
+          <Input aria-label="搜索会员卡" value={cardName} onChange={event => setCardName(event.target.value)} placeholder="输入卡名称搜索" disabled={cardFilterType === 'not-holding'} allowClear />
+        </Space.Compact>
         <Select aria-label="所属门店" placeholder="请选择门店" allowClear options={storeOptions} />
       </FilterToolbar>
-      <FilterRow label="消费金额"><Input aria-label="消费金额下限" placeholder="请输入金额" inputMode="decimal" /><span className="customer-range-separator">~</span><Input aria-label="消费金额上限" placeholder="请输入金额" inputMode="decimal" /></FilterRow>
+      <FilterRow label="消费金额"><InputNumber aria-label="消费金额下限" min={0} precision={2} placeholder="请输入金额" /><span className="customer-range-separator">~</span><InputNumber aria-label="消费金额上限" min={0} precision={2} placeholder="请输入金额" /></FilterRow>
       <ChoiceRow label="持卡状态" options={['全部', '持卡', '未持卡']} />
       <ChoiceRow label="会员等级" options={['全部', '无等级']} />
-      <ChoiceRow label="上次消费" options={['全部', '30天内未消费', '60天内未消费', '90天内未消费', '自定义']} />
-      <ChoiceRow label="消费次数" options={['全部', '1次及以内', '3次及以内', '5次及以内', '自定义']} />
-      <ChoiceRow label="近期生日" options={['全部', '今天', '未来3天', '未来7天', '自定义']} />
-      <FilterRow label="顾客来源"><Select aria-label="顾客来源" placeholder="请选择顾客来源" allowClear options={sourceOptions} /><Input aria-label="顾客标签" placeholder="输入个性标签搜索" /></FilterRow>
+      <ChoiceRow label="上次消费" options={['全部', '30天内未消费', '60天内未消费', '90天内未消费', '自定义']} customInput="date" />
+      <ChoiceRow label="消费次数" options={['全部', '1次及以内', '3次及以内', '5次及以内', '自定义']} customInput="number" />
+      <ChoiceRow label="近期生日" options={['全部', '今天', '未来3天', '未来7天', '自定义']} customInput="date" />
+      <FilterRow label="顾客来源"><Select aria-label="顾客来源" placeholder="请选择顾客来源" allowClear options={sourceOptions} /><Input aria-label="顾客标签" placeholder="请输入个性标签搜索" /></FilterRow>
     </div>
     <div className="customer-panel customer-data-panel">
       <div className="customer-result-heading"><span>共搜索到{visibleRecords.length}个顾客</span><Select aria-label="顾客排序" size="small" defaultValue="created-desc" options={[{ value: 'created-desc', label: '顾客建档时间(由近到远)' }, { value: 'created-asc', label: '顾客建档时间(由远到近)' }]} /></div>
@@ -128,7 +156,6 @@ function CustomerListPanel({ records }: { records: CustomerRecord[] }) {
 }
 
 function AdvancedSearchPanel() {
-  const { message } = App.useApp()
   const [category, setCategory] = useState('基本信息')
   const [condition, setCondition] = useState('性别')
   const conditionMap: Record<string, string[]> = {
@@ -145,12 +172,9 @@ function AdvancedSearchPanel() {
     { title: '操作', key: 'actions', width: 120 },
   ]
   return <>
-    <div className="customer-panel customer-advanced-panel">
-      <div className="advanced-search-head"><div><h2>高级查询</h2><p>先选择信息分类，再选择具体查询项</p></div><Tag color="blue">当前：{category} / {condition}</Tag></div>
-      <div className="advanced-search-section"><span className="advanced-search-label">条件分类</span><div className="advanced-search-options" role="tablist" aria-label="高级查询条件分类">{Object.keys(conditionMap).map(item => <button type="button" role="tab" key={item} className={`advanced-search-option${category === item ? ' is-active' : ''}`} aria-selected={category === item} onClick={() => { setCategory(item); setCondition(conditionMap[item][0]) }}>{item}<span>{conditionMap[item].length}</span></button>)}</div></div>
-      <div className="advanced-search-divider" />
-      <div className="advanced-search-section"><span className="advanced-search-label">选择条件</span><div className="advanced-search-options">{conditionMap[category].map(item => <button type="button" key={item} className={`advanced-search-option${condition === item ? ' is-active' : ''}`} aria-pressed={condition === item} onClick={() => setCondition(item)}>{item}</button>)}</div></div>
-      <div className="advanced-search-actions"><Button type="primary" onClick={() => void message.success(`已应用：${category} / ${condition}`)}>应用条件</Button><Button onClick={() => { setCategory('基本信息'); setCondition('性别') }}>重置</Button></div>
+    <div className="customer-panel customer-filter-panel customer-advanced-panel">
+      <FilterRow label="条件分类"><div className="customer-choice-list" role="tablist" aria-label="高级查询条件分类">{Object.keys(conditionMap).map(item => <button type="button" role="tab" key={item} className={`customer-choice${category === item ? ' is-active' : ''}`} aria-selected={category === item} aria-pressed={category === item} onClick={() => { setCategory(item); setCondition(conditionMap[item][0]) }}>{item}</button>)}</div></FilterRow>
+      <FilterRow label="选择条件"><div className="customer-choice-list">{conditionMap[category].map(item => <button type="button" key={item} className={`customer-choice${condition === item ? ' is-active' : ''}`} aria-pressed={condition === item} onClick={() => setCondition(item)}>{item}</button>)}</div></FilterRow>
     </div>
     <div className="customer-panel customer-data-panel"><EmptyTable ariaLabel="高级查询结果" columns={columns} /></div>
   </>
@@ -183,7 +207,7 @@ function StoredValuePanel() {
 function FollowupFilters({ variant, onEditRule }: { variant: VisitTab; onEditRule?: () => void }) {
   if (variant === 'rules') return <div className="customer-panel customer-filter-panel customer-rule-toolbar"><FilterRow label="回访门店"><Select aria-label="回访门店" placeholder="请选择回访门店" allowClear options={storeOptions} /></FilterRow><Button type="primary" icon={<PlusOutlined />} aria-label="新增回访计划" onClick={onEditRule}>新增回访计划</Button></div>
   return <div className="customer-panel customer-filter-panel">
-    <FilterToolbar><Select aria-label="回访门店" placeholder="请选择门店" allowClear options={storeOptions} /><Select aria-label="回访员工类型" defaultValue="employee" options={[{ value: 'employee', label: '员工' }, { value: 'store', label: '门店' }]} /><Input.Search aria-label="搜索回访员工" placeholder="输入员工姓名/工号" allowClear /><DatePicker.RangePicker aria-label="计划回访时间" placeholder={['开始日期', '结束日期']} inputReadOnly classNames={{ popup: { root: 'responsive-range-popup' } }} /></FilterToolbar>
+    <FilterToolbar><Select aria-label="回访门店" placeholder="请选择门店" allowClear options={storeOptions} /><Space.Compact className="customer-search-combo"><Select aria-label="回访员工类型" defaultValue="employee" options={[{ value: 'employee', label: '员工' }, { value: 'store', label: '门店' }]} /><Input.Search aria-label="搜索回访员工" placeholder="输入员工姓名/工号" allowClear /></Space.Compact><VisitDateFilter /></FilterToolbar>
     <ChoiceRow label="回访场景" options={['全部', '消费品项目', '顾客生日', '新建顾客', '长期未消费', '手动创建']} />
     {variant === 'detail' ? <><ChoiceRow label="回访状态" options={['全部', '待回访(0)', '已回访(0)', '已作废(0)']} /><ChoiceRow label="超时状态" options={['全部', '未超时', '已超时']} /></> : <p className="customer-followup-note">顾客回访后 <strong>15</strong> 天内到店消费计为回访后到店，超出限定时间范围不计算。<Button type="link" size="small" onClick={onEditRule}>修改</Button></p>}
   </div>
@@ -200,24 +224,55 @@ function CustomerVisitPanel({ visitTab, onChangeTab, onEditRule, rules }: { visi
   </div>
 }
 
-function CustomerFollowupPanel() {
-  const columns: TableColumnsType<EmptyRow> = [
-    { title: '顾客信息', key: 'customer', width: 300 },
-    { title: '跟进场景', key: 'scene', width: 260 },
-    { title: '计划跟进时间', key: 'plannedAt', width: 260 },
-    { title: '跟进员工', key: 'employee', width: 220 },
-    { title: '状态', key: 'status', width: 140 },
-    { title: '操作', key: 'actions', width: 120 },
+function CustomerFollowupPanel({ records }: { records: CustomerRecord[] }) {
+  const [keyword, setKeyword] = useState('')
+  const [assignee, setAssignee] = useState('unassigned-tracker')
+  const [statFilter, setStatFilter] = useState('总顾客数')
+  const [selectedKeys, setSelectedKeys] = useState<string[]>([])
+  const followupRecords = useMemo(() => records.slice(0, 1), [records])
+  const visibleRecords = useMemo(() => {
+    const normalized = keyword.trim().toLowerCase()
+    const assigneeRecords = assignee === 'unassigned-tracker' || assignee === 'unassigned-adviser' ? followupRecords : []
+    const statRecords = statFilter === '总顾客数' || statFilter === '未持卡顾客' ? assigneeRecords : []
+    if (!normalized) return statRecords
+    return statRecords.filter(row => `${row.name}${row.phone}${row.code}`.toLowerCase().includes(normalized))
+  }, [assignee, followupRecords, keyword, statFilter])
+  const allVisibleSelected = visibleRecords.length > 0 && visibleRecords.every(row => selectedKeys.includes(row.id))
+  const toggleAll = (checked: boolean) => setSelectedKeys(checked ? visibleRecords.map(row => row.id) : [])
+  const columns: TableColumnsType<CustomerRecord> = [
+    { title: <Checkbox aria-label="全选顾客" checked={allVisibleSelected} indeterminate={selectedKeys.length > 0 && !allVisibleSelected} onChange={event => toggleAll(event.target.checked)} />, key: 'select', width: 48, render: (_, row) => <Checkbox aria-label={`选择${row.name || maskPhone(row.phone)}`} checked={selectedKeys.includes(row.id)} onChange={event => setSelectedKeys(current => event.target.checked ? [...new Set([...current, row.id])] : current.filter(id => id !== row.id))} /> },
+    { title: '顾客信息', key: 'customer', width: 330, render: (_, row) => <div className="customer-followup-customer"><span className="customer-followup-avatar">{row.name ? row.name.slice(0, 1) : '1'}</span><div className="customer-cell-stack"><strong>{row.name || maskPhone(row.phone)}</strong><span>{row.phone}</span><span>顾客编号：{row.code}</span></div></div> },
+    { title: '跟踪员工', key: 'tracker', width: 180, render: () => <span className="customer-muted">未分配</span> },
+    { title: '专属顾问', key: 'adviser', width: 180, render: () => <span className="customer-muted">未分配</span> },
+    { title: '会员资产', key: 'assets', width: 250, render: (_, row) => <div className="customer-cell-stack"><span>持卡：{row.cardCount}张</span><span>卡余额：{row.balance.toFixed(2)}元</span><span>次卡余额：0次</span></div> },
+    { title: '累计消费', key: 'spent', width: 220, render: (_, row) => <div className="customer-cell-stack"><span>金额：{row.spent.toFixed(2)}元</span><span>次数：{row.visitCount}次</span></div> },
+    { title: '操作', key: 'actions', width: 150, render: () => <div className="customer-row-actions"><Button type="link" size="small">分配</Button><Button type="link" size="small">详情</Button></div> },
   ]
-  return <>
-    <div className="customer-panel customer-filter-panel">
-      <FilterToolbar><Select aria-label="跟进门店" placeholder="请选择门店" allowClear options={storeOptions} /><Select aria-label="跟进员工类型" defaultValue="employee" options={[{ value: 'employee', label: '员工' }, { value: 'store', label: '门店' }]} /><Input.Search aria-label="搜索跟进员工" placeholder="输入员工姓名/工号" allowClear /><Select aria-label="计划跟进时间类型" defaultValue="planned" options={[{ value: 'planned', label: '计划回访时间' }, { value: 'created', label: '创建时间' }]} /><DatePicker.RangePicker aria-label="计划跟进时间" placeholder={['开始日期', '结束日期']} inputReadOnly classNames={{ popup: { root: 'responsive-range-popup' } }} /></FilterToolbar>
-      <ChoiceRow label="回访场景" options={['全部', '消费品项目', '顾客生日', '新建顾客', '长期未消费', '手动创建']} />
-      <ChoiceRow label="回访状态" options={['全部', '待回访(0)', '已回访(0)', '已作废(0)']} />
-      <ChoiceRow label="超时状态" options={['全部', '未超时', '已超时']} />
+  const stats = [
+    { label: '总顾客数', value: followupRecords.length },
+    { label: '有效持卡顾客', value: followupRecords.filter(row => row.cardCount > 0).length },
+    { label: '未持卡顾客', value: followupRecords.filter(row => row.cardCount === 0).length },
+    { label: '新顾客', value: 0 },
+    { label: '活跃顾客', value: 0 },
+    { label: '休眠顾客', value: 0 },
+    { label: '流失顾客', value: 0 },
+  ]
+  const batchItems: MenuProps['items'] = [{ key: 'assign', label: '分配跟踪员工' }, { key: 'adviser', label: '分配专属顾问' }]
+  return <div className="customer-panel customer-followup-layout">
+    <aside className="customer-followup-sidebar">
+      <Select aria-label="跟进门店" defaultValue="current" options={storeOptions} />
+      <div className="customer-followup-assignees">{followupAssignees.map(item => <button type="button" key={item.key} className={`customer-followup-assignee${assignee === item.key ? ' is-active' : ''}`} aria-pressed={assignee === item.key} onClick={() => setAssignee(item.key)}><span>{item.label}</span><strong>{item.count}</strong></button>)}</div>
+    </aside>
+    <div className="customer-followup-main">
+      <div className="customer-followup-stats">{stats.map(item => <button type="button" className={`customer-followup-stat${statFilter === item.label ? ' is-active' : ''}`} key={item.label} aria-pressed={statFilter === item.label} onClick={() => setStatFilter(item.label)}><strong>{item.value}</strong><span>{item.label}</span></button>)}</div>
+      <div className="customer-followup-toolbar"><Input.Search aria-label="搜索跟进顾客" placeholder="输入顾客姓名/手机号/编号" value={keyword} onChange={event => setKeyword(event.target.value)} allowClear enterButton={<SearchOutlined />} /><Dropdown menu={{ items: batchItems }} trigger={['click']}><Button disabled={selectedKeys.length === 0} icon={<DownOutlined />}>批量操作</Button></Dropdown></div>
+      <div className="customer-followup-table-area">
+        <Table<CustomerRecord> aria-label="顾客跟进" rowKey="id" columns={columns} dataSource={visibleRecords} pagination={false} scroll={{ x: 1320 }} locale={{ emptyText: null }} />
+        {visibleRecords.length === 0 && <div className="customer-followup-empty" role="status" aria-label="顾客跟进暂无相关数据"><GoalEmpty /><span>暂无相关数据</span></div>}
+        <div className="customer-followup-footer"><span>当前共搜索到{visibleRecords.length}条记录</span><Pagination size="small" current={1} pageSize={20} total={visibleRecords.length} showSizeChanger={false} hideOnSinglePage={false} /></div>
+      </div>
     </div>
-    <div className="customer-panel customer-data-panel"><EmptyTable ariaLabel="顾客跟进" columns={columns} rows={[]} width={1260} showHeader={false} /></div>
-  </>
+  </div>
 }
 
 function NewCustomerModal({ open, onClose, onSave }: { open: boolean; onClose: () => void; onSave: (record: CustomerRecord) => void }) {
@@ -249,7 +304,7 @@ export default function CustomersPage() {
   const tab: CustomerTab = tabs.some(item => item.key === raw) ? raw! : 'list'
   const rawVisitTab = params.get('visitTab') as VisitTab | null
   const visitTab: VisitTab = rawVisitTab === 'visit' || rawVisitTab === 'rules' ? rawVisitTab : 'detail'
-  const [records, setRecords] = useState<CustomerRecord[]>([])
+  const [records, setRecords] = useState<CustomerRecord[]>(defaultCustomerRecords)
   const [visitRules, setVisitRules] = useState<VisitRule[]>([])
   const [customerModalOpen, setCustomerModalOpen] = useState(false)
   const [storageModalOpen, setStorageModalOpen] = useState(false)
@@ -265,7 +320,7 @@ export default function CustomersPage() {
       : tab === 'visit'
         ? <CustomerVisitPanel visitTab={visitTab} onChangeTab={setVisitTab} onEditRule={() => setRuleModalOpen(true)} rules={visitRules} />
         : tab === 'followup'
-          ? <CustomerFollowupPanel />
+          ? <CustomerFollowupPanel records={records} />
           : <CustomerListPanel records={records} />
   if (!session?.userInfo.platformAdmin && !can('home:read')) return <Result status="403" title="暂无顾客查看权限" subTitle="请联系企业管理员分配首页或顾客经营权限。" />
   return <section className="customers-page" aria-labelledby="customers-title">

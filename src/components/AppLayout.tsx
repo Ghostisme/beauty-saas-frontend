@@ -2,7 +2,7 @@ import { useState } from 'react'
 import type { ReactNode } from 'react'
 import { Avatar, Button, Drawer, Grid, Menu, Popover, Tooltip } from 'antd'
 import type { MenuProps } from 'antd'
-import { BankOutlined, BarChartOutlined, CalendarOutlined, DatabaseOutlined, DesktopOutlined, DownOutlined, FileTextOutlined, HomeFilled, MenuOutlined, MessageOutlined, MobileOutlined, SettingOutlined, TabletOutlined, TeamOutlined, UserOutlined, UsergroupAddOutlined, InboxOutlined } from '@ant-design/icons'
+import { AppstoreOutlined, BankOutlined, BarChartOutlined, CalendarOutlined, DatabaseOutlined, DesktopOutlined, DownOutlined, FileTextOutlined, FundOutlined, HomeFilled, MenuOutlined, MessageOutlined, MobileOutlined, SettingOutlined, ShopOutlined, TabletOutlined, TeamOutlined, UserOutlined, UsergroupAddOutlined, InboxOutlined } from '@ant-design/icons'
 import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { usePreferences } from '@/context/PreferencesContext'
@@ -30,7 +30,12 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const compact = layoutMode === 'pad'
   const modeLabel = mode === 'pad' ? 'PAD模式' : '电脑模式'
   const nextModeLabel = mode === 'pad' ? '电脑模式' : 'PAD模式'
-  const selectedNavigationKey = location.pathname === '/customer-reminders' ? '/customers' : location.pathname
+  const locationParams = new URLSearchParams(location.search)
+  const selectedNavigationKey = location.pathname === '/customer-reminders'
+    ? '/customers'
+    : location.pathname === '/store-management'
+      ? locationParams.get('tab') === 'rooms' ? '/store-management/rooms' : '/store-management/departments'
+      : location.pathname
   const user = session?.userInfo
   const displayName = user?.nickname?.trim() || '负责人'
   const canManage = ['tenant:read', 'users:read', 'departments:read', 'rooms:read', 'roles:read'].some(can)
@@ -39,6 +44,19 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const canAppointmentModule = user?.platformAdmin || can('home:read')
   const canDataReports = user?.platformAdmin || can('home:read')
   const canInventory = user?.platformAdmin || can('inventory:read')
+  const canStoreSettings = user?.platformAdmin || ['departments:read', 'rooms:read'].some(can)
+  const canStaffSettings = user?.platformAdmin || ['users:read', 'roles:read'].some(can)
+  const canItemsSettings = user?.platformAdmin || can('items:read')
+  const canCommissionSettings = user?.platformAdmin || can('commissions:read')
+  const settingsMenuItems = [
+    ...(canStoreSettings ? [
+      ...(user?.platformAdmin || can('departments:read') ? [{ key: '/store-management/departments', icon: <ShopOutlined />, label: <Link to="/store-management?tab=departments" onClick={() => setNavigationOpen(false)}>门店管理</Link> }] : []),
+      ...(user?.platformAdmin || can('rooms:read') ? [{ key: '/store-management/rooms', icon: <ShopOutlined />, label: <Link to="/store-management?tab=rooms" onClick={() => setNavigationOpen(false)}>房间管理</Link> }] : []),
+    ] : []),
+    ...(canItemsSettings ? [{ key: '/items', icon: <AppstoreOutlined />, label: <Link to="/items?kind=PROJECT" onClick={() => setNavigationOpen(false)}>品项管理</Link> }] : []),
+    ...(canStaffSettings ? [{ key: '/staff-management', icon: <TeamOutlined />, label: <Link to="/staff-management?tab=users" onClick={() => setNavigationOpen(false)}>门店员工</Link> }] : []),
+    ...(canCommissionSettings ? [{ key: '/commissions', icon: <FundOutlined />, label: <Link to="/commissions?kind=PROJECT" onClick={() => setNavigationOpen(false)}>提成管理</Link> }] : []),
+  ]
   const menuItems: MenuProps['items'] = [
     ...(user?.platformAdmin
       ? [{ key: '/platform/tenants', icon: <BankOutlined />, label: <Link to="/platform/tenants" onClick={() => setNavigationOpen(false)}>企业管理</Link> }]
@@ -56,6 +74,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
     ...(canInventory ? [{ key: 'business-management', type: 'group' as const, label: '业务管理', children: [
       { key: '/inventory', icon: <InboxOutlined />, label: <Link to="/inventory" onClick={() => setNavigationOpen(false)}>库存管理</Link> },
     ] }] : []),
+    ...(settingsMenuItems.length ? [{ key: 'settings-management', type: 'group' as const, label: '业务设置', children: settingsMenuItems }] : []),
   ]
 
   function openDisplaySettings() {
@@ -121,7 +140,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
       </header>
 
       <aside className="workspace-sidebar" aria-label="主导航">
-        <Menu mode="inline" inlineCollapsed={compact} defaultOpenKeys={['customer-operations', 'data-reports', 'acquisition-tools', 'business-management']} selectedKeys={[selectedNavigationKey]} items={menuItems} />
+        <Menu mode="inline" inlineCollapsed={compact} defaultOpenKeys={['customer-operations', 'data-reports', 'acquisition-tools', 'business-management', 'settings-management']} selectedKeys={[selectedNavigationKey]} items={menuItems} />
         <button
           type="button"
           className="device-mode"
@@ -143,7 +162,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
         onClose={() => setNavigationOpen(false)}
         className="navigation-drawer"
       >
-        <nav aria-label="移动端主导航"><Menu selectedKeys={[selectedNavigationKey]} defaultOpenKeys={['customer-operations', 'data-reports', 'acquisition-tools', 'business-management']} mode="inline" items={menuItems} /></nav>
+        <nav aria-label="移动端主导航"><Menu selectedKeys={[selectedNavigationKey]} defaultOpenKeys={['customer-operations', 'data-reports', 'acquisition-tools', 'business-management', 'settings-management']} mode="inline" items={menuItems} /></nav>
         <div className="mobile-mode"><MobileOutlined /> 移动模式</div>
       </Drawer>
 

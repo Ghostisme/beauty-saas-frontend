@@ -1,9 +1,9 @@
-.iam-page { display: flex; flex: 1 0 auto; flex-direction: column; min-width: 0; gap: 20px; }
+.iam-page { display: flex; flex: 1 0 auto; flex-direction: column; min-width: 0; gap: 16px; }
 .iam-page-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 6px 2px 0; }
 .iam-page-heading h1 { display: flex; align-items: center; gap: 10px; margin: 0; font-size: 21px; font-weight: 600; }
 .iam-page-heading h1 .anticon { color: var(--primary); }
 .iam-page-heading p { margin: 8px 0 0; color: var(--text-tertiary); font-size: 13px; line-height: 1.7; }
-.iam-content { flex: 1 0 auto; min-width: 0; padding: 4px 24px 24px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
+.iam-content { flex: 1 0 auto; min-width: 0; padding: 4px 20px 20px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
 .iam-content .ant-tabs, .iam-content .ant-tabs-content-holder, .iam-panel { min-width: 0; }
 .iam-content .ant-tabs-nav { margin-bottom: 22px; }
 .iam-content .ant-tabs-tab { padding-block: 16px; }
@@ -22,7 +22,9 @@
 .iam-panel .ant-table-pagination { flex-wrap: wrap; row-gap: 12px; }
 .iam-loading { display: grid; min-height: 280px; place-items: center; }
 .iam-loading .ant-spin-nested-loading { width: 160px; height: 100px; }
-.iam-modal .ant-modal-body { max-height: calc(100dvh - 220px); overflow-y: auto; overscroll-behavior: contain; padding-right: 4px; }
+.iam-modal .ant-modal { max-width: calc(100vw - 32px); }
+.iam-modal .ant-modal-body { max-height: min(calc(100dvh - 220px), 620px); overflow-y: auto; overscroll-behavior: contain; padding-right: 4px; }
+.iam-modal .ant-modal-content { border-radius: 12px; }
 .iam-modal .ant-modal-header { margin-bottom: 20px; }
 .iam-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 20px; }
 .iam-form-grid > *, .iam-role-row > * { min-width: 0; }

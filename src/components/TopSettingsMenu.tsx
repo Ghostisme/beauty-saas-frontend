@@ -1,12 +1,14 @@
 import { App, Divider } from 'antd'
 import type { ReactNode } from 'react'
 import { AppstoreOutlined, FundOutlined, SettingOutlined, ShopOutlined, TeamOutlined } from '@ant-design/icons'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 
 interface SettingsItem {
   key: string
   label: string
+  route?: string
+  permission?: string
 }
 
 interface SettingsGroup {
@@ -14,6 +16,7 @@ interface SettingsGroup {
   title: string
   icon: ReactNode
   items: SettingsItem[]
+  permission?: string
 }
 
 const settingsGroups: SettingsGroup[] = [
@@ -22,8 +25,8 @@ const settingsGroups: SettingsGroup[] = [
     title: '商户基础信息设置',
     icon: <ShopOutlined />,
     items: [
-      { key: 'stores', label: '门店管理' },
-      { key: 'rooms', label: '房间管理' },
+      { key: 'stores', label: '门店管理', route: '/store-management?tab=departments' },
+      { key: 'rooms', label: '房间管理', route: '/store-management?tab=rooms' },
     ],
   },
   {
@@ -43,13 +46,11 @@ const settingsGroups: SettingsGroup[] = [
     key: 'items',
     title: '品项管理',
     icon: <AppstoreOutlined />,
+    permission: 'items:read',
     items: [
-      { key: 'store-products', label: '门店产品' },
-      { key: 'services', label: '服务项目' },
-      { key: 'cards', label: '会员卡' },
-      { key: 'coupons', label: '券' },
-      { key: 'categories', label: '类别设置' },
-      { key: 'price-templates', label: '价格模板' },
+      { key: 'store-products', label: '门店产品', route: '/items?kind=PRODUCT', permission: 'items:read' },
+      { key: 'services', label: '服务项目', route: '/items?kind=PROJECT', permission: 'items:read' },
+      { key: 'cards', label: '会员卡', route: '/items?kind=CARD', permission: 'items:read' },
     ],
   },
   {
@@ -57,8 +58,8 @@ const settingsGroups: SettingsGroup[] = [
     title: '门店员工管理',
     icon: <TeamOutlined />,
     items: [
-      { key: 'staff-list', label: '员工列表' },
-      { key: 'positions', label: '职位管理' },
+      { key: 'staff-list', label: '员工列表', route: '/staff-management?tab=users' },
+      { key: 'positions', label: '职位管理', route: '/staff-management?tab=roles' },
       { key: 'schedules', label: '员工排班' },
       { key: 'sop', label: 'SOP自检' },
       { key: 'attendance', label: '考勤打卡' },
@@ -69,11 +70,12 @@ const settingsGroups: SettingsGroup[] = [
     key: 'commission',
     title: '提成管理',
     icon: <FundOutlined />,
+    permission: 'commissions:read',
     items: [
-      { key: 'service-commission', label: '项目提成' },
-      { key: 'product-commission', label: '产品提成' },
-      { key: 'card-commission', label: '卡提成' },
-      { key: 'tiered-commission', label: '阶梯提成' },
+      { key: 'service-commission', label: '项目提成', route: '/commissions?kind=PROJECT', permission: 'commissions:read' },
+      { key: 'product-commission', label: '产品提成', route: '/commissions?kind=PRODUCT', permission: 'commissions:read' },
+      { key: 'card-commission', label: '卡提成', route: '/commissions?kind=CARD', permission: 'commissions:read' },
+      { key: 'tiered-commission', label: '阶梯提成', route: '/commissions?kind=STEP', permission: 'commissions:read' },
     ],
   },
 ]
@@ -86,10 +88,23 @@ interface TopSettingsMenuProps {
 export function TopSettingsMenu({ onDisplaySettings, onNavigate }: TopSettingsMenuProps) {
   const { message } = App.useApp()
   const navigate = useNavigate()
-  const { can } = useAuth()
-  const managementTabs: Record<string, string> = { stores: 'departments', rooms: 'rooms', permissions: 'roles', authorization: 'roles', 'staff-list': 'users', positions: 'roles' }
+  const [params] = useSearchParams()
+  const { can, session } = useAuth()
+  const platform = session?.userInfo.platformAdmin ?? false
+  const visibleGroups = settingsGroups.filter(group => !group.permission || platform || can(group.permission))
+  const managementTabs: Record<string, string> = { permissions: 'roles', authorization: 'roles' }
 
   function openItem(item: SettingsItem) {
+    if (item.route) {
+      if (!platform && item.permission && !can(item.permission)) { void message.warning('暂无访问权限，请联系企业管理员'); return }
+      const [path, query = ''] = item.route.split('?')
+      const target = new URLSearchParams(query)
+      const tenantId = platform ? params.get('tenantId') : null
+      if (tenantId) target.set('tenantId', tenantId)
+      onNavigate()
+      navigate(`${path}${target.size ? `?${target}` : ''}`)
+      return
+    }
     const tab = managementTabs[item.key]
     if (!tab) { void message.info(`${item.label}功能将在后续模块接入`); return }
     if (!can(`${tab}:read`)) { void message.warning('暂无访问权限，请联系企业管理员'); return }
@@ -103,7 +118,7 @@ export function TopSettingsMenu({ onDisplaySettings, onNavigate }: TopSettingsMe
         <SettingOutlined aria-hidden />
         <span>设置</span>
       </div>
-      {settingsGroups.map(group => (
+      {visibleGroups.map(group => (
         <section className="settings-group" key={group.key}>
           <h2 className="settings-group-title">
             <span className="settings-group-icon" aria-hidden>{group.icon}</span>

@@ -74,7 +74,7 @@ export function UserPanel({ options, revision, onChanged }: IamPanelProps) {
       { title: '状态', dataIndex: 'status', width: 90, render: value => <StatusTag status={value} /> },
       ...(writable ? [{ title: '操作', key: 'actions', width: 220, render: (_: unknown, row: ManagedUser) => <Space size={0}><Button type="link" onClick={() => edit(row)}>编辑</Button>{!row.owner && row.id !== session?.userInfo.id && <><Button type="link" onClick={() => { flushSync(() => setResetting(row)); resetForm.resetFields() }}>重置密码</Button><Button type="link" danger onClick={() => remove('users', row.id, row.nickname)}>删除</Button></>}</Space> }] : []),
     ]} />
-    <Modal title={editing ? '编辑用户' : '新增用户'} open={editing !== undefined} onCancel={() => !saving && setEditing(undefined)} onOk={() => form.submit()} confirmLoading={saving} okButtonProps={{ 'aria-label': '保存' }} cancelButtonProps={{ disabled: saving }} okText="保存" cancelText="取消" centered width={760} className="iam-modal">
+    <Modal title={editing ? '编辑用户' : '新增用户'} open={editing !== undefined} onCancel={() => !saving && setEditing(undefined)} onOk={() => form.submit()} confirmLoading={saving} okButtonProps={{ 'aria-label': '保存' }} cancelButtonProps={{ disabled: saving }} okText="保存" cancelText="取消" centered width={680} className="iam-modal">
       <Form name="user-editor" form={form} layout="vertical" onFinish={save} disabled={saving}>
         {editing?.owner && <Alert className="iam-query-error" type="info" showIcon title="企业负责人受保护：不能停用、删除或移除管理员身份。" />}
         <div className="iam-form-grid">

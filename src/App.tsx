@@ -14,6 +14,8 @@ const CustomersPage = lazy(() => import('@/pages/CustomersPage'))
 const InventoryAlertsPage = lazy(() => import('@/pages/InventoryAlertsPage'))
 const DataReportsPage = lazy(() => import('@/pages/DataReportsPage'))
 const SystemLogsPage = lazy(() => import('@/pages/SystemLogsPage'))
+const CatalogPage = lazy(() => import('@/pages/CatalogPage'))
+const AppointmentPage = lazy(() => import('@/pages/AppointmentPage'))
 const AppLayout = lazy(() => import('@/components/AppLayout').then(module => ({ default: module.AppLayout })))
 
 function RequireAuth() {
@@ -53,6 +55,12 @@ export default function App() {
             <Route path="/data-reports" element={<DataReportsPage />} />
             <Route path="/system-logs" element={<SystemLogsPage />} />
             <Route path="/sms" element={<SmsPage />} />
+            <Route path="/appointments" element={<AppointmentPage />} />
+            <Route path="/store-management" element={<UserManagementPage focus="store" />} />
+            <Route path="/staff-management" element={<UserManagementPage focus="staff" />} />
+            <Route path="/items" element={<CatalogPage mode="items" />} />
+            <Route path="/inventory" element={<CatalogPage mode="inventory" />} />
+            <Route path="/commissions" element={<CatalogPage mode="commissions" />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

@@ -53,7 +53,7 @@ button { -webkit-tap-highlight-color: transparent; }
 .account-menu-info strong { font-weight: 500; color: #434343; }
 .account-menu-info span { color: #8c8c8c; font-size: 12px; }
 .top-settings-popover .ant-popover-inner { padding: 0; overflow: hidden; }
-.top-settings-menu { width: 372px; max-height: min(72dvh, 560px); overflow-y: auto; padding: 18px 20px 14px; scrollbar-width: thin; }
+.top-settings-menu { width: 344px; max-height: min(72dvh, 560px); overflow-y: auto; padding: 18px 18px 14px; scrollbar-width: thin; }
 .top-settings-heading { display: flex; align-items: center; gap: 9px; margin-bottom: 16px; color: var(--text); font-size: 14px; font-weight: 600; }
 .top-settings-heading .anticon { color: var(--text-secondary); font-size: 16px; }
 .settings-group + .settings-group { margin-top: 15px; }
@@ -100,6 +100,7 @@ button { -webkit-tap-highlight-color: transparent; }
 .mobile-mode { margin: 24px 20px; font-size: 12px; color: #8c8c8c; }
 .drawer-actions { display: flex; justify-content: flex-end; }
 .settings-account { margin-top: 36px; padding-top: 20px; border-top: 1px solid #f0f0f0; }
+.settings-drawer .ant-drawer-content-wrapper { width: min(360px, calc(100vw - 24px)) !important; }
 
 /* Homepage follows the reference: reminders, monthly goals, then six metrics. */
 .reminder-bar { display: flex; flex: 0 0 auto; align-items: center; flex-wrap: wrap; gap: 6px 18px; min-height: 66px; padding: 12px 18px; background: var(--surface); border-radius: var(--radius); }

@@ -1,0 +1,11 @@
+import type { PageResult } from '@/types/iam'
+
+export type ItemKind = 'PROJECT' | 'PRODUCT' | 'CARD'
+export interface CatalogItem { id: number; tenantId: number; kind: ItemKind; code: string; name: string; category?: string; price: number; durationMinutes?: number; unit?: string; spec?: string; description?: string; status: number; createTime: string; updateTime: string }
+export interface InventoryRow { id: number; departmentId: number; departmentName: string; itemId: number; itemCode: string; itemName: string; category?: string; unit?: string; spec?: string; quantity: number; costPrice: number; warningValue: number; shortage?: number; version: number; updateTime: string }
+export type InventoryChangeType = 'IN' | 'OUT' | 'ADJUST'
+export interface InventoryChangeRow { id: number; inventoryId: number; departmentId: number; departmentName: string; itemId: number; itemCode: string; itemName: string; changeType: InventoryChangeType; quantity: number; unitCost: number; reason?: string; referenceNo?: string; actorId: number; createTime: string }
+export type CommissionKind = 'PROJECT' | 'PRODUCT' | 'CARD' | 'STEP'
+export interface CommissionRule { id?: number; itemId?: number; itemCode?: string; itemName?: string; minAmount: number; maxAmount?: number; basis: 'PERCENT' | 'AMOUNT'; rate: number; fixedAmount: number; sortOrder: number }
+export interface CommissionScheme { id: number; tenantId: number; kind: CommissionKind; name: string; basis: 'PERCENT' | 'AMOUNT'; rate: number; fixedAmount: number; description?: string; status: number; version: number; rules: CommissionRule[]; createTime: string; updateTime: string }
+export type CatalogPage<T> = PageResult<T>

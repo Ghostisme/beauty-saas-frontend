@@ -10,7 +10,6 @@ import { PendingAppointmentReminderModal } from '@/components/home-reminders/Pen
 import { InactiveCardReminderModal } from '@/components/home-reminders/InactiveCardReminderModal'
 import { MembershipExpiryReminderModal } from '@/components/home-reminders/MembershipExpiryReminderModal'
 import { RechargeReminderModal } from '@/components/home-reminders/RechargeReminderModal'
-import { InventoryAlertsDrawer } from '@/components/home-reminders/InventoryAlertsDrawer'
 import { usePreferences } from '@/context/PreferencesContext'
 import { useNavigate } from 'react-router-dom'
 
@@ -52,7 +51,6 @@ export default function HomePage() {
   const [period, setPeriod] = useState<Period>('week')
   const [range, setRange] = useState<DateRange>(() => rangeFor('week'))
   const [activeReminder, setActiveReminder] = useState<Reminder | null>(null)
-  const [inventoryOpen, setInventoryOpen] = useState(false)
 
   function changePeriod(value: Period) {
     setPeriod(value)
@@ -69,7 +67,7 @@ export default function HomePage() {
       return
     }
     if (item.key === 'stock') {
-      setInventoryOpen(true)
+      navigate('/inventory?shortageOnly=1')
       return
     }
     setActiveReminder({ ...item, icon: Icon })
@@ -177,7 +175,6 @@ export default function HomePage() {
       <InactiveCardReminderModal open={activeReminder?.key === 'absent'} onClose={closeReminder} />
       <MembershipExpiryReminderModal open={activeReminder?.key === 'expiry'} onClose={closeReminder} />
       <RechargeReminderModal open={activeReminder?.key === 'balance'} onClose={closeReminder} />
-      <InventoryAlertsDrawer open={inventoryOpen} onClose={() => setInventoryOpen(false)} />
     </div>
   )
 }

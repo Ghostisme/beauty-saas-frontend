@@ -2,7 +2,7 @@ import { useState } from 'react'
 import type { ReactNode } from 'react'
 import { Avatar, Button, Drawer, Grid, Menu, Popover, Tooltip } from 'antd'
 import type { MenuProps } from 'antd'
-import { AppstoreOutlined, BankOutlined, BarChartOutlined, CalendarOutlined, DatabaseOutlined, DesktopOutlined, DownOutlined, FileAddOutlined, FileTextOutlined, FundOutlined, HomeFilled, MenuOutlined, MessageOutlined, MobileOutlined, SettingOutlined, ShopOutlined, TabletOutlined, TeamOutlined, UserOutlined, UsergroupAddOutlined, InboxOutlined, DollarOutlined } from '@ant-design/icons'
+import { AppstoreOutlined, BankOutlined, BarChartOutlined, CalendarOutlined, DatabaseOutlined, DesktopOutlined, DownOutlined, FileTextOutlined, FundOutlined, HomeFilled, MenuOutlined, MessageOutlined, MobileOutlined, SettingOutlined, ShopOutlined, TabletOutlined, TeamOutlined, UserOutlined, UsergroupAddOutlined, InboxOutlined } from '@ant-design/icons'
 import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { usePreferences } from '@/context/PreferencesContext'
@@ -65,22 +65,16 @@ export function AppLayout({ children }: { children: ReactNode }) {
       { key: '/user-management', icon: <TeamOutlined />, label: <Link to="/user-management" onClick={() => setNavigationOpen(false)}>用户管理</Link> },
     ] }] : []),
     ...(canCustomerModule || canOrdersModule ? [{ key: 'customer-operations', type: 'group' as const, label: '顾客经营', children: [
-      ...(canAppointmentModule ? [{ key: '/appointments', icon: <CalendarOutlined />, label: <Link to="/appointments" onClick={() => setNavigationOpen(false)}>预约</Link> }] : []),
-      ...(canOrdersModule ? [{ key: '/billing', icon: <FileAddOutlined />, label: <Link to="/billing" onClick={() => setNavigationOpen(false)}>开单</Link> }] : []),
       ...(canCustomerModule ? [{ key: '/customers', icon: <UsergroupAddOutlined />, label: <Link to="/customers" onClick={() => setNavigationOpen(false)}>顾客</Link> }] : []),
       ...(canOrdersModule ? [{ key: '/orders', icon: <FileTextOutlined />, label: <Link to="/orders" onClick={() => setNavigationOpen(false)}>订单管理</Link> }] : []),
+      ...(canAppointmentModule ? [{ key: '/appointments', icon: <CalendarOutlined />, label: <Link to="/appointments" onClick={() => setNavigationOpen(false)}>预约</Link> }] : []),
     ] }] : []),
     ...(canDataReports ? [{ key: 'data-reports', icon: <DatabaseOutlined />, label: '数据', children: [
       { key: '/data-reports', icon: <BarChartOutlined />, label: <Link to="/data-reports" onClick={() => setNavigationOpen(false)}>数据报表</Link> },
     ] }] : []),
-    ...(user?.platformAdmin || ['sms-settings:read', 'sms-records:read', 'sms-billing:read'].some(can) ? [{ key: 'acquisition-tools', type: 'group' as const, label: '拓客工具', children: [
-      { key: '/marketing', icon: <AppstoreOutlined />, label: <Link to="/marketing" onClick={() => setNavigationOpen(false)}>营销</Link> },
-      { key: '/sms', icon: <MessageOutlined />, label: <Link to="/sms" onClick={() => setNavigationOpen(false)}>短信</Link> },
-    ] }] : []),
+    ...(user?.platformAdmin || ['sms-settings:read', 'sms-records:read', 'sms-billing:read'].some(can) ? [{ key: 'acquisition-tools', type: 'group' as const, label: '拓客工具', children: [{ key: '/sms', icon: <MessageOutlined />, label: <Link to="/sms" onClick={() => setNavigationOpen(false)}>短信</Link> }] }] : []),
     ...(canInventory ? [{ key: 'business-management', type: 'group' as const, label: '业务管理', children: [
       { key: '/inventory', icon: <InboxOutlined />, label: <Link to="/inventory" onClick={() => setNavigationOpen(false)}>库存管理</Link> },
-      { key: '/bookkeeping', icon: <DollarOutlined />, label: <Link to="/bookkeeping" onClick={() => setNavigationOpen(false)}>收支</Link> },
-      { key: '/targets', icon: <FundOutlined />, label: <Link to="/targets" onClick={() => setNavigationOpen(false)}>目标</Link> },
     ] }] : []),
     ...(settingsMenuItems.length ? [{ key: 'settings-management', type: 'group' as const, label: '设置', children: settingsMenuItems }] : []),
   ]

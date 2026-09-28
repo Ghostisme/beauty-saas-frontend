@@ -1,0 +1,61 @@
+# ═══════════════════════════════════════════════════════════════════════
+#  余乐圈美业 SaaS —— 前端栈（nginx + Vite 静态产物）
+#
+#  ⚠️ 临时演示部署，后面要整体移除。
+#
+#  由 Jenkins 的 beauty-web 流水线部署（deploy/Jenkinsfile）。
+#  和后端栈完全分开：前端换版本不碰 backend / mysql 容器，
+#  后端滚动更新也不影响这里。两栈只通过外部网络 beauty-saas-net 相连。
+#
+#  前端为什么跑容器而不是让宿主 nginx 直接托管静态文件：
+#  本次部署要求前后端各占一个独立端口，静态托管的话前端不占任何端口。
+#  顺带好处是宿主 nginx 不碰文件系统，省掉给 www-data 配目录遍历 ACL
+#  那一步（那是个只报 Permission denied、很难定位的 403 坑）。
+#
+#  排查时直接用 docker 命令，不需要 compose 文件（它在 Jenkins 工作区里）：
+#    docker ps --filter name=beauty-saas-frontend
+#    docker logs -f beauty-saas-frontend
+# ═══════════════════════════════════════════════════════════════════════
+name: beauty-web
+
+services:
+  frontend:
+    build:
+      # 上下文是前端仓库根目录，Jenkins 把仓库 checkout 到工作区根
+      context: ..
+      dockerfile: deploy/Dockerfile
+      # 必须显式指定 runtime —— Dockerfile 里它不是最后一个阶段，
+      # 不写会构建到 export（scratch 空镜像）然后根本起不来
+      target: runtime
+    # IMAGE_TAG 由 Jenkinsfile 注入（构建号-commit短哈希），每次构建独立 tag，
+    # 回滚时能精确指定版本。手工 compose 时默认落到 latest。
+    image: beauty-saas-frontend:${IMAGE_TAG:-latest}
+    container_name: beauty-saas-frontend
+    restart: unless-stopped
+    environment:
+      TZ: Asia/Shanghai
+    ports:
+      # 只绑 127.0.0.1，公网只能通过宿主机 nginx 的 443 进来。
+      # 19180 避开 portfolio 栈已占的十个端口。
+      - "127.0.0.1:19180:8080"
+    # 刻意不加 depends_on: backend —— 两栈是独立的 compose 项目，
+    # compose 没法跨项目声明依赖；而且容器内 nginx 用变量式 proxy_pass
+    # 延迟解析后端主机名，后端没起来时前端页面照常能打开（API 返回 502）。
+    labels:
+      # 让 VPS 上已有的 portfolio-autoheal 接管它的异常重启
+      autoheal: "true"
+    # 纯静态托管，64M 绰绰有余
+    mem_limit: 64m
+    networks: [beauty]
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  beauty:
+    # 外部网络：和后端栈共用，靠它用容器名 beauty-saas-backend 直连后端。
+    # 由 Jenkinsfile 的环境自检阶段确保存在。
+    external: true
+    name: beauty-saas-net

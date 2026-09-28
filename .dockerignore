@@ -1,0 +1,18 @@
+# 构建上下文排除。⚠️ 必须是 LF 行尾：带 CRLF 的 .dockerignore 会让所有
+# 规则整体失效（模式末尾多一个 \r 匹配不上真实文件名），意味着 node_modules
+# 和日志都会被打进构建上下文，而且不会有任何报错提示。
+.git
+.gitignore
+node_modules
+dist
+dist-out
+artifacts
+test-results
+playwright-report
+*.log
+.vscode
+.idea
+
+# ⚠️ 刻意不排除 deploy/：runtime 阶段要 COPY deploy/nginx.conf。
+#    排除它会让构建在那一行失败（报找不到文件），而根因在这个文件里，
+#    离报错位置很远。deploy/ 只有几个配置文件，进上下文的成本可以忽略。

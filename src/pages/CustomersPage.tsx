@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
-import { App, Button, Checkbox, DatePicker, Dropdown, Input, InputNumber, Modal, Pagination, Result, Select, Space, Table, Tabs } from 'antd'
+import { App, Button, Checkbox, DatePicker, Descriptions, Dropdown, Input, InputNumber, Modal, Pagination, Result, Select, Space, Table, Tabs } from 'antd'
 import type { MenuProps, TableColumnsType } from 'antd'
 import { DownloadOutlined, DownOutlined, PlusOutlined, QuestionCircleOutlined, SearchOutlined } from '@ant-design/icons'
 import { useSearchParams } from 'react-router-dom'
@@ -24,12 +24,22 @@ interface CustomerRecord extends EmptyRow {
   spent: number
   visitCount: number
   lastVisit: string
+  tracker?: string
+  adviser?: string
 }
 
 interface VisitRule extends EmptyRow {
   store: string
   description: string
   updatedAt: string
+}
+
+interface StoredRecord extends EmptyRow {
+  customer: string
+  store: string
+  operation: string
+  item: string
+  remark: string
 }
 
 const tabs: { key: CustomerTab; label: string }[] = [
@@ -66,6 +76,28 @@ function currentQuery(change: (params: URLSearchParams) => void) {
   const params = new URLSearchParams(window.location.search)
   change(params)
   return params
+}
+
+function downloadCustomerCsv(records: CustomerRecord[]) {
+  if (records.length === 0) return false
+  const escape = (value: string) => {
+    const safe = /^[\s\u0000-\u001f]*[=+\-@]/.test(value) ? `'${value}` : value
+    return `"${safe.replace(/"/g, '""')}"`
+  }
+  const rows = [
+    ['顾客姓名', '手机号', '顾客编号', '会员等级', '持卡数量', '卡余额', '累计消费', '消费次数'],
+    ...records.map(row => [row.name, row.phone, row.code, row.level, `${row.cardCount}`, row.balance.toFixed(2), row.spent.toFixed(2), `${row.visitCount}`]),
+  ]
+  const csv = rows.map(row => row.map(escape).join(',')).join('\r\n')
+  const url = URL.createObjectURL(new Blob(['\uFEFF', csv], { type: 'text/csv;charset=utf-8' }))
+  const link = document.createElement('a')
+  link.href = url
+  link.download = '顾客列表.csv'
+  document.body.append(link)
+  link.click()
+  link.remove()
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000)
+  return true
 }
 
 function FilterRow({ label, children }: { label: string; children: ReactNode }) {
@@ -122,7 +154,7 @@ function TopActions({ children }: { children: ReactNode }) {
   return <div className="customer-top-actions">{children}</div>
 }
 
-function CustomerListPanel({ records }: { records: CustomerRecord[] }) {
+function CustomerListPanel({ records, onDetail, onMore }: { records: CustomerRecord[]; onDetail: (row: CustomerRecord) => void; onMore: (action: 'edit' | 'delete', row: CustomerRecord) => void }) {
   const [keyword, setKeyword] = useState('')
   const [cardFilterType, setCardFilterType] = useState('holding')
   const [cardName, setCardName] = useState('')
@@ -136,7 +168,7 @@ function CustomerListPanel({ records }: { records: CustomerRecord[] }) {
     { title: '顾客资产', key: 'assets', width: 260, render: (_, row) => <div className="customer-cell-stack"><span>持卡：{row.cardCount}张</span><span>卡余额：{row.balance.toFixed(2)}元</span><span>次卡余量：0次</span></div> },
     { title: '累计消费', key: 'spent', width: 220, render: (_, row) => <div className="customer-cell-stack"><span>金额：{row.spent.toFixed(2)}元</span><span>次数：{row.visitCount}次</span></div> },
     { title: '上次消费信息', key: 'lastOrder', width: 300, render: (_, row) => row.lastVisit || '暂无消费信息' },
-    { title: '操作', key: 'actions', width: 150, render: () => <div className="customer-row-actions"><Button type="link" size="small">详情</Button><Button type="link" size="small">更多</Button></div> },
+    { title: '操作', key: 'actions', width: 150, render: (_, row) => <div className="customer-row-actions"><Button type="link" size="small" onClick={() => onDetail(row)}>详情</Button><Dropdown trigger={['click']} menu={{ items: [{ key: 'edit', label: '编辑顾客档案' }, { key: 'delete', label: '删除顾客档案', danger: true }], onClick: ({ key }) => onMore(key as 'edit' | 'delete', row) }}><Button type="link" size="small">更多</Button></Dropdown></div> },
   ]
   return <>
     <div className="customer-panel customer-filter-panel">
@@ -189,13 +221,13 @@ function AdvancedSearchPanel() {
   </>
 }
 
-function StoredValuePanel() {
+function StoredValuePanel({ records }: { records: StoredRecord[] }) {
   const columns: TableColumnsType<EmptyRow> = [
-    { title: '顾客信息', key: 'customer', width: 280 },
-    { title: '门店信息', key: 'store', width: 240 },
-    { title: '操作信息', key: 'operation', width: 250 },
-    { title: '品项信息', key: 'item', width: 260 },
-    { title: '备注', key: 'remark', width: 220 },
+    { title: '顾客信息', dataIndex: 'customer', key: 'customer', width: 280 },
+    { title: '门店信息', dataIndex: 'store', key: 'store', width: 240 },
+    { title: '操作信息', dataIndex: 'operation', key: 'operation', width: 250 },
+    { title: '品项信息', dataIndex: 'item', key: 'item', width: 260 },
+    { title: '备注', dataIndex: 'remark', key: 'remark', width: 220 },
     { title: '操作', key: 'actions', width: 120 },
   ]
   return <>
@@ -209,7 +241,7 @@ function StoredValuePanel() {
       </FilterToolbar>
       <div className="stored-value-stats"><div><span>产品寄存余量</span><strong>0</strong></div><div><span>项目寄存余量</span><strong>0</strong></div><div><span>寄存顾客人数</span><strong>0</strong></div></div>
     </div>
-    <div className="customer-panel customer-data-panel"><EmptyTable ariaLabel="顾客寄存" columns={columns} width={1320} /></div>
+    <div className="customer-panel customer-data-panel"><EmptyTable ariaLabel="顾客寄存" columns={columns} rows={records} footerLabel={`当前共搜索到${records.length}条记录`} width={1320} /></div>
   </>
 }
 
@@ -233,7 +265,7 @@ function CustomerVisitPanel({ visitTab, onChangeTab, onEditRule, rules }: { visi
   </div>
 }
 
-function CustomerFollowupPanel({ records }: { records: CustomerRecord[] }) {
+function CustomerFollowupPanel({ records, onDetail, onAssign }: { records: CustomerRecord[]; onDetail: (row: CustomerRecord) => void; onAssign: (rows: CustomerRecord[], target: 'tracker' | 'adviser') => void }) {
   const [keyword, setKeyword] = useState('')
   const [assignee, setAssignee] = useState('unassigned-tracker')
   const [statFilter, setStatFilter] = useState('总顾客数')
@@ -251,11 +283,11 @@ function CustomerFollowupPanel({ records }: { records: CustomerRecord[] }) {
   const columns: TableColumnsType<CustomerRecord> = [
     { title: <Checkbox aria-label="全选顾客" checked={allVisibleSelected} indeterminate={selectedKeys.length > 0 && !allVisibleSelected} onChange={event => toggleAll(event.target.checked)} />, key: 'select', width: 48, render: (_, row) => <Checkbox aria-label={`选择${row.name || maskPhone(row.phone)}`} checked={selectedKeys.includes(row.id)} onChange={event => setSelectedKeys(current => event.target.checked ? [...new Set([...current, row.id])] : current.filter(id => id !== row.id))} /> },
     { title: '顾客信息', key: 'customer', width: 330, render: (_, row) => <div className="customer-followup-customer"><span className="customer-followup-avatar">{row.name ? row.name.slice(0, 1) : '1'}</span><div className="customer-cell-stack"><strong>{row.name || maskPhone(row.phone)}</strong><span>{row.phone}</span><span>顾客编号：{row.code}</span></div></div> },
-    { title: '跟踪员工', key: 'tracker', width: 180, render: () => <span className="customer-muted">未分配</span> },
-    { title: '专属顾问', key: 'adviser', width: 180, render: () => <span className="customer-muted">未分配</span> },
+    { title: '跟踪员工', key: 'tracker', width: 180, render: (_, row) => <span className={row.tracker ? undefined : 'customer-muted'}>{row.tracker || '未分配'}</span> },
+    { title: '专属顾问', key: 'adviser', width: 180, render: (_, row) => <span className={row.adviser ? undefined : 'customer-muted'}>{row.adviser || '未分配'}</span> },
     { title: '会员资产', key: 'assets', width: 250, render: (_, row) => <div className="customer-cell-stack"><span>持卡：{row.cardCount}张</span><span>卡余额：{row.balance.toFixed(2)}元</span><span>次卡余额：0次</span></div> },
     { title: '累计消费', key: 'spent', width: 220, render: (_, row) => <div className="customer-cell-stack"><span>金额：{row.spent.toFixed(2)}元</span><span>次数：{row.visitCount}次</span></div> },
-    { title: '操作', key: 'actions', width: 150, render: () => <div className="customer-row-actions"><Button type="link" size="small">分配</Button><Button type="link" size="small">详情</Button></div> },
+    { title: '操作', key: 'actions', width: 150, render: (_, row) => <div className="customer-row-actions"><Button type="link" size="small" onClick={() => onAssign([row], 'tracker')}>分配</Button><Button type="link" size="small" onClick={() => onDetail(row)}>详情</Button></div> },
   ]
   const stats = [
     { label: '总顾客数', value: followupRecords.length },
@@ -266,7 +298,7 @@ function CustomerFollowupPanel({ records }: { records: CustomerRecord[] }) {
     { label: '休眠顾客', value: 0 },
     { label: '流失顾客', value: 0 },
   ]
-  const batchItems: MenuProps['items'] = [{ key: 'assign', label: '分配跟踪员工' }, { key: 'adviser', label: '分配专属顾问' }]
+  const batchItems: MenuProps['items'] = [{ key: 'tracker', label: '分配跟踪员工' }, { key: 'adviser', label: '分配专属顾问' }]
   return <div className="customer-panel customer-followup-layout">
     <aside className="customer-followup-sidebar">
       <Select aria-label="跟进门店" defaultValue="current" options={storeOptions} />
@@ -274,7 +306,7 @@ function CustomerFollowupPanel({ records }: { records: CustomerRecord[] }) {
     </aside>
     <div className="customer-followup-main">
       <div className="customer-followup-stats">{stats.map(item => <button type="button" className={`customer-followup-stat${statFilter === item.label ? ' is-active' : ''}`} key={item.label} aria-pressed={statFilter === item.label} onClick={() => setStatFilter(item.label)}><strong>{item.value}</strong><span>{item.label}</span></button>)}</div>
-      <div className="customer-followup-toolbar"><Input.Search aria-label="搜索跟进顾客" placeholder="输入顾客姓名/手机号/编号" value={keyword} onChange={event => setKeyword(event.target.value)} allowClear enterButton={<SearchOutlined />} /><Dropdown menu={{ items: batchItems }} trigger={['click']}><Button disabled={selectedKeys.length === 0} icon={<DownOutlined />}>批量操作</Button></Dropdown></div>
+      <div className="customer-followup-toolbar"><Input.Search aria-label="搜索跟进顾客" placeholder="输入顾客姓名/手机号/编号" value={keyword} onChange={event => setKeyword(event.target.value)} allowClear enterButton={<SearchOutlined />} /><Dropdown menu={{ items: batchItems, onClick: ({ key }) => onAssign(visibleRecords.filter(row => selectedKeys.includes(row.id)), key as 'tracker' | 'adviser') }} trigger={['click']}><Button disabled={selectedKeys.length === 0} icon={<DownOutlined />}>批量操作</Button></Dropdown></div>
       <div className="customer-followup-table-area">
         <Table<CustomerRecord> aria-label="顾客跟进" rowKey="id" columns={columns} dataSource={visibleRecords} pagination={false} scroll={{ x: 1320 }} locale={{ emptyText: null }} />
         {visibleRecords.length === 0 && <div className="customer-followup-empty" role="status" aria-label="顾客跟进暂无相关数据"><GoalEmpty /><span>暂无相关数据</span></div>}
@@ -284,20 +316,61 @@ function CustomerFollowupPanel({ records }: { records: CustomerRecord[] }) {
   </div>
 }
 
-function NewCustomerModal({ open, onClose, onSave }: { open: boolean; onClose: () => void; onSave: (record: CustomerRecord) => void }) {
-  const [name, setName] = useState('')
-  const [phone, setPhone] = useState('')
-  const [code, setCode] = useState('')
+function CustomerEditorModal({ open, initial, onClose, onSave }: { open: boolean; initial?: CustomerRecord; onClose: () => void; onSave: (record: CustomerRecord) => void }) {
+  const [name, setName] = useState(initial?.name ?? '')
+  const [phone, setPhone] = useState(initial?.phone ?? '')
+  const [code, setCode] = useState(initial?.code ?? '')
+  useEffect(() => {
+    if (!open) return
+    setName(initial?.name ?? '')
+    setPhone(initial?.phone ?? '')
+    setCode(initial?.code ?? '')
+  }, [initial, open])
   const save = () => {
     if (!name.trim() || !phone.trim()) return
-    onSave({ id: `local-${Date.now()}`, name: name.trim(), phone: phone.trim(), code: code.trim() || '未编号', level: '无等级', cardCount: 0, balance: 0, spent: 0, visitCount: 0, lastVisit: '' })
+    onSave({ id: initial?.id ?? `local-${Date.now()}`, name: name.trim(), phone: phone.trim(), code: code.trim() || '未编号', level: initial?.level ?? '无等级', cardCount: initial?.cardCount ?? 0, balance: initial?.balance ?? 0, spent: initial?.spent ?? 0, visitCount: initial?.visitCount ?? 0, lastVisit: initial?.lastVisit ?? '', tracker: initial?.tracker, adviser: initial?.adviser })
     setName(''); setPhone(''); setCode(''); onClose()
   }
-  return <Modal title="新建顾客档案" open={open} onCancel={onClose} onOk={save} okText="保存" cancelText="取消"><div className="customer-form"><label>顾客姓名<Input aria-label="顾客姓名" value={name} onChange={event => setName(event.target.value)} placeholder="请输入顾客姓名" /></label><label>手机号<Input aria-label="顾客手机号" value={phone} onChange={event => setPhone(event.target.value)} placeholder="请输入手机号" /></label><label>顾客编号<Input aria-label="顾客编号" value={code} onChange={event => setCode(event.target.value)} placeholder="可选" /></label></div></Modal>
+  return <Modal title={initial ? '编辑顾客档案' : '新建顾客档案'} open={open} onCancel={onClose} onOk={save} okText="保存" cancelText="取消"><div className="customer-form"><label>顾客姓名<Input aria-label="顾客姓名" value={name} onChange={event => setName(event.target.value)} placeholder="请输入顾客姓名" /></label><label>手机号<Input aria-label="顾客手机号" value={phone} onChange={event => setPhone(event.target.value)} placeholder="请输入手机号" /></label><label>顾客编号<Input aria-label="顾客编号" value={code} onChange={event => setCode(event.target.value)} placeholder="可选" /></label></div></Modal>
 }
 
-function StorageModal({ open, onClose, onSave }: { open: boolean; onClose: () => void; onSave: () => void }) {
-  return <Modal title="新建寄存" open={open} onCancel={onClose} onOk={() => { onSave(); onClose() }} okText="保存" cancelText="取消"><div className="customer-form"><label>顾客<Input placeholder="请选择顾客" /></label><label>寄存类型<Select aria-label="新建寄存类型" placeholder="请选择寄存类型" options={storageTypeOptions} /></label><label>品项<Input placeholder="请输入产品或项目" /></label></div></Modal>
+function CustomerDetailModal({ customer, onClose }: { customer?: CustomerRecord; onClose: () => void }) {
+  return <Modal title="顾客详情" open={Boolean(customer)} onCancel={onClose} footer={<Button onClick={onClose}>关闭</Button>} width={680} destroyOnHidden>
+    {customer && <Descriptions bordered size="small" column={2}>
+      <Descriptions.Item label="顾客姓名">{customer.name || '—'}</Descriptions.Item>
+      <Descriptions.Item label="手机号">{customer.phone || '—'}</Descriptions.Item>
+      <Descriptions.Item label="顾客编号">{customer.code || '—'}</Descriptions.Item>
+      <Descriptions.Item label="会员等级">{customer.level || '—'}</Descriptions.Item>
+      <Descriptions.Item label="持卡数量">{customer.cardCount}张</Descriptions.Item>
+      <Descriptions.Item label="卡余额">{customer.balance.toFixed(2)}元</Descriptions.Item>
+      <Descriptions.Item label="累计消费">{customer.spent.toFixed(2)}元</Descriptions.Item>
+      <Descriptions.Item label="消费次数">{customer.visitCount}次</Descriptions.Item>
+      <Descriptions.Item label="跟踪员工">{customer.tracker || '未分配'}</Descriptions.Item>
+      <Descriptions.Item label="专属顾问">{customer.adviser || '未分配'}</Descriptions.Item>
+      <Descriptions.Item label="上次消费信息" span={2}>{customer.lastVisit || '暂无消费信息'}</Descriptions.Item>
+    </Descriptions>}
+  </Modal>
+}
+
+function CustomerAssignmentModal({ customers, target, onClose, onSave }: { customers: CustomerRecord[]; target: 'tracker' | 'adviser'; onClose: () => void; onSave: (name: string) => void }) {
+  const [assignee, setAssignee] = useState(target === 'tracker' ? customers[0]?.tracker ?? '' : customers[0]?.adviser ?? '')
+  useEffect(() => { setAssignee(target === 'tracker' ? customers[0]?.tracker ?? '' : customers[0]?.adviser ?? '') }, [customers, target])
+  return <Modal title={target === 'tracker' ? '分配跟踪员工' : '分配专属顾问'} open={customers.length > 0} onCancel={onClose} onOk={() => onSave(assignee)} okText="保存" cancelText="取消" destroyOnHidden>
+    <Select aria-label="跟踪员工" value={assignee || undefined} onChange={setAssignee} placeholder="请选择跟踪员工" options={followupAssignees.filter(item => item.key !== 'unassigned-tracker' && item.key !== 'unassigned-adviser').map(item => ({ value: item.label, label: item.label }))} style={{ width: '100%' }} allowClear />
+  </Modal>
+}
+
+function StorageModal({ open, onClose, onSave }: { open: boolean; onClose: () => void; onSave: (record: StoredRecord) => void }) {
+  const [customer, setCustomer] = useState('')
+  const [type, setType] = useState<string>()
+  const [item, setItem] = useState('')
+  useEffect(() => { if (open) { setCustomer(''); setType(undefined); setItem('') } }, [open])
+  const save = () => {
+    if (!customer.trim() || !type || !item.trim()) return
+    onSave({ id: `stored-${Date.now()}`, customer: customer.trim(), store: '当前门店', operation: type === 'product' ? '产品寄存' : '项目寄存', item: item.trim(), remark: '' })
+    onClose()
+  }
+  return <Modal title="新建寄存" open={open} onCancel={onClose} onOk={save} okText="保存" cancelText="取消"><div className="customer-form"><label>顾客<Input value={customer} onChange={event => setCustomer(event.target.value)} placeholder="请选择顾客" /></label><label>寄存类型<Select aria-label="新建寄存类型" value={type} onChange={setType} placeholder="请选择寄存类型" options={storageTypeOptions} /></label><label>品项<Input value={item} onChange={event => setItem(event.target.value)} placeholder="请输入产品或项目" /></label></div></Modal>
 }
 
 function RuleModal({ open, onClose, onSave }: { open: boolean; onClose: () => void; onSave: () => void }) {
@@ -307,32 +380,63 @@ function RuleModal({ open, onClose, onSave }: { open: boolean; onClose: () => vo
 
 export default function CustomersPage() {
   const { session, can } = useAuth()
-  const { message } = App.useApp()
+  const { message, modal } = App.useApp()
   const [params, setParams] = useSearchParams()
   const raw = params.get('tab') as CustomerTab | null
   const tab: CustomerTab = tabs.some(item => item.key === raw) ? raw! : 'list'
   const rawVisitTab = params.get('visitTab') as VisitTab | null
   const visitTab: VisitTab = rawVisitTab === 'visit' || rawVisitTab === 'rules' ? rawVisitTab : 'detail'
   const [records, setRecords] = useState<CustomerRecord[]>(defaultCustomerRecords)
+  const [storedRecords, setStoredRecords] = useState<StoredRecord[]>([])
   const [visitRules, setVisitRules] = useState<VisitRule[]>([])
   const [customerModalOpen, setCustomerModalOpen] = useState(false)
   const [storageModalOpen, setStorageModalOpen] = useState(false)
   const [ruleModalOpen, setRuleModalOpen] = useState(false)
   const [explanationOpen, setExplanationOpen] = useState(false)
+  const [detailCustomer, setDetailCustomer] = useState<CustomerRecord>()
+  const [editingCustomer, setEditingCustomer] = useState<CustomerRecord>()
+  const [assigningCustomers, setAssigningCustomers] = useState<CustomerRecord[]>([])
+  const [assignTarget, setAssignTarget] = useState<'tracker' | 'adviser'>('tracker')
   const setTab = (next: CustomerTab) => setParams(currentQuery(current => { current.set('tab', next); if (next !== 'visit') current.delete('visitTab') }))
   const setVisitTab = (next: VisitTab) => setParams(currentQuery(current => { current.set('tab', 'visit'); current.set('visitTab', next) }))
-  const exportRecords = () => { void message.info(records.length ? `已准备导出${records.length}条顾客记录` : '当前没有可导出的顾客记录') }
+  const exportRecords = () => { if (!downloadCustomerCsv(records)) void message.info('当前没有可导出的顾客记录') }
+  const saveCustomer = (record: CustomerRecord) => {
+    const editing = records.some(item => item.id === record.id)
+    setRecords(current => editing ? current.map(item => item.id === record.id ? record : item) : [...current, record])
+    void message.success(editing ? '顾客档案已更新' : '顾客档案已保存')
+    setEditingCustomer(undefined)
+    setCustomerModalOpen(false)
+  }
+  const handleMore = (action: 'edit' | 'delete', row: CustomerRecord) => {
+    if (action === 'edit') {
+      setEditingCustomer(row)
+      setCustomerModalOpen(false)
+      return
+    }
+    modal.confirm({ title: `删除“${row.name}”？`, content: '删除后不可恢复，请确认。', okText: '删除', okButtonProps: { danger: true }, cancelText: '取消', onOk: () => { setRecords(current => current.filter(item => item.id !== row.id)); void message.success('顾客档案已删除') } })
+  }
+  const openAssignment = (rows: CustomerRecord[], target: 'tracker' | 'adviser') => {
+    if (rows.length === 0) return
+    setAssigningCustomers(rows)
+    setAssignTarget(target)
+  }
+  const assignCustomer = (name: string) => {
+    const ids = new Set(assigningCustomers.map(row => row.id))
+    setRecords(current => current.map(item => ids.has(item.id) ? { ...item, [assignTarget]: name || undefined } : item))
+    setAssigningCustomers([])
+    void message.success(assignTarget === 'tracker' ? '跟踪员工已分配' : '专属顾问已分配')
+  }
   const content = tab === 'advanced'
     ? <AdvancedSearchPanel />
     : tab === 'stored'
-      ? <StoredValuePanel />
+      ? <StoredValuePanel records={storedRecords} />
     : tab === 'visit'
         ? <CustomerVisitPanel visitTab={visitTab} onChangeTab={setVisitTab} onEditRule={() => setRuleModalOpen(true)} rules={visitRules} />
         : tab === 'followup'
-          ? <CustomerFollowupPanel records={records} />
+          ? <CustomerFollowupPanel records={records} onDetail={setDetailCustomer} onAssign={openAssignment} />
           : tab === 'reminders'
             ? <CustomerReminderContent />
-            : <CustomerListPanel records={records} />
+            : <CustomerListPanel records={records} onDetail={setDetailCustomer} onMore={handleMore} />
   if (!session?.userInfo.platformAdmin && !can('home:read')) return <Result status="403" title="暂无顾客查看权限" subTitle="请联系企业管理员分配首页或顾客经营权限。" />
   return <section className="customers-page" aria-labelledby="customers-title">
     <h1 id="customers-title" className="visually-hidden">顾客经营</h1>
@@ -346,8 +450,10 @@ export default function CustomersPage() {
       </TopActions>
     </div>
     {content}
-    <NewCustomerModal open={customerModalOpen} onClose={() => setCustomerModalOpen(false)} onSave={record => { setRecords(current => [...current, record]); void message.success('顾客档案已保存') }} />
-    <StorageModal open={storageModalOpen} onClose={() => setStorageModalOpen(false)} onSave={() => { void message.success('寄存记录已保存') }} />
+    <CustomerEditorModal open={customerModalOpen || Boolean(editingCustomer)} initial={editingCustomer} onClose={() => { setCustomerModalOpen(false); setEditingCustomer(undefined) }} onSave={saveCustomer} />
+    <CustomerDetailModal customer={detailCustomer} onClose={() => setDetailCustomer(undefined)} />
+    <CustomerAssignmentModal customers={assigningCustomers} target={assignTarget} onClose={() => setAssigningCustomers([])} onSave={assignCustomer} />
+    <StorageModal open={storageModalOpen} onClose={() => setStorageModalOpen(false)} onSave={record => { setStoredRecords(current => [...current, record]); void message.success('寄存记录已保存') }} />
     <RuleModal open={ruleModalOpen} onClose={() => setRuleModalOpen(false)} onSave={() => { setVisitRules(current => [...current, { id: `rule-${Date.now()}`, store: '当前门店', description: '回访后15天内到店计入回访后到店', updatedAt: '刚刚' }]); void message.success('回访规则已保存') }} />
     <Modal title="顾客跟进数据说明" open={explanationOpen} onCancel={() => setExplanationOpen(false)} footer={<Button type="primary" onClick={() => setExplanationOpen(false)}>知道了</Button>}><p>顾客跟进会汇总待回访、已回访和已作废记录，支持按门店、员工、计划时间和超时状态筛选。</p></Modal>
   </section>

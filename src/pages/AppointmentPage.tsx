@@ -42,9 +42,9 @@ interface AppointmentFormValues {
   note?: string
 }
 
-const staffColumns = ['小杨', '李老师', '王店长', '前台']
-const roomColumns = ['护理间 A', '护理间 B', 'VIP 房', '公共区']
-const services = ['基础清洁护理', '补水修护护理', '肩颈舒缓', '产品试用咨询']
+const defaultStaffColumns = ['小杨', '李老师', '王店长', '前台']
+const defaultRoomColumns = ['护理间 A', '护理间 B', 'VIP 房', '公共区']
+const defaultServices = ['基础清洁护理', '补水修护护理', '肩颈舒缓', '产品试用咨询']
 const statuses: Array<{ value: AppointmentStatus; label: string; color: string }> = [
   { value: 'PENDING', label: '待确认', color: '#faad14' },
   { value: 'CONFIRMED', label: '待服务', color: '#1677ff' },
@@ -76,16 +76,19 @@ function toAppointment(row: Record<string, unknown>): Appointment {
   }
 }
 
-function AppointmentEditor({ open, appointment, defaultStart, viewMode, onClose, onSave }: {
+function AppointmentEditor({ open, appointment, defaultStart, viewMode, staffOptions, roomOptions, serviceOptions, onClose, onSave }: {
   open: boolean
   appointment?: Appointment
   defaultStart: string
   viewMode: ViewMode
+  staffOptions: string[]
+  roomOptions: string[]
+  serviceOptions: string[]
   onClose: () => void
   onSave: (value: AppointmentFormValues) => void
 }) {
   const [form] = Form.useForm<AppointmentFormValues>()
-  const assigneeOptions = (viewMode === 'staff' ? staffColumns : roomColumns).map(value => ({ value, label: value }))
+  const assigneeOptions = (viewMode === 'staff' ? staffOptions : roomOptions).map(value => ({ value, label: value }))
   function setDefaults() {
     form.setFieldsValue(appointment ? {
       customer: appointment.customer, phone: appointment.phone, service: appointment.service,
@@ -93,7 +96,7 @@ function AppointmentEditor({ open, appointment, defaultStart, viewMode, onClose,
       assignee: viewMode === 'staff' ? appointment.staff : appointment.room, status: appointment.status,
       color: appointment.color, note: appointment.note,
     } : {
-      customer: '', service: services[0], start: dayjs(`2026-01-01 ${defaultStart}`), duration: 60,
+      customer: '', service: serviceOptions[0] ?? defaultServices[0], start: dayjs(`2026-01-01 ${defaultStart}`), duration: 60,
       assignee: assigneeOptions[0]?.value, status: 'PENDING', color: colors[0],
     })
   }
@@ -104,7 +107,7 @@ function AppointmentEditor({ open, appointment, defaultStart, viewMode, onClose,
         <Form.Item name="phone" label="联系电话"><Input placeholder="选填" maxLength={30} /></Form.Item>
       </div>
       <div className="appointment-form-grid">
-        <Form.Item name="service" label="预约项目" rules={[{ required: true, message: '请选择预约项目' }]}><Select options={services.map(value => ({ value, label: value }))} /></Form.Item>
+        <Form.Item name="service" label="预约项目" rules={[{ required: true, message: '请选择预约项目' }]}><Select options={serviceOptions.map(value => ({ value, label: value }))} /></Form.Item>
         <Form.Item name="assignee" label={viewMode === 'staff' ? '服务人员' : '房间'} rules={[{ required: true, message: '请选择安排' }]}><Select options={assigneeOptions} /></Form.Item>
       </div>
       <div className="appointment-form-grid appointment-form-grid--three">
@@ -135,11 +138,15 @@ export default function AppointmentPage() {
   const [revision, setRevision] = useState(0)
   const [editor, setEditor] = useState<{ open: boolean; appointment?: Appointment; start: string }>({ open: false, start: '10:00' })
   const departments = useCatalogQuery<Department[]>('/iam/departments', tenantId, revision, enabled)
+  const options = useCatalogQuery<{ staff?: Array<Record<string, unknown>>; rooms?: Array<Record<string, unknown>>; services?: Array<Record<string, unknown>> }>(`/appointments/options${departmentId ? `?departmentId=${departmentId}` : ''}`, tenantId, revision, enabled)
   const query = useCatalogQuery<PageResult<Record<string, unknown>>>(`/appointments?date=${date.format('YYYY-MM-DD')}&page=1&pageSize=100${departmentId ? `&departmentId=${departmentId}` : ''}${statusFilter === 'ALL' ? '' : `&status=${statusFilter}`}`, tenantId, revision, enabled)
   const stores = (departments.data ?? []).filter(item => item.type === 'STORE' && item.status === 1)
   const store = stores.find(item => item.id === departmentId) ?? stores[0]
   useEffect(() => { if (departmentId === undefined && stores[0]) setDepartmentId(stores[0].id) }, [departmentId, stores])
   const appointments = useMemo(() => (query.data?.records ?? []).map(toAppointment), [query.data])
+  const staffColumns = useMemo(() => { const values = (options.data?.staff ?? []).map(row => String(row.nickname ?? row.username ?? '')).filter(Boolean); return values.length ? values : defaultStaffColumns }, [options.data])
+  const roomColumns = useMemo(() => { const values = (options.data?.rooms ?? []).map(row => String(row.name ?? '')).filter(Boolean); return values.length ? values : defaultRoomColumns }, [options.data])
+  const serviceOptions = useMemo(() => { const values = (options.data?.services ?? []).map(row => String(row.name ?? '')).filter(Boolean); return values.length ? values : defaultServices }, [options.data])
   const columns = viewMode === 'staff' ? staffColumns : roomColumns
   const counts = useMemo(() => statuses.map(status => ({ ...status, count: appointments.filter(item => item.status === status.value).length })), [appointments])
   const writable = platform || can('appointments:write')
@@ -169,7 +176,7 @@ export default function AppointmentPage() {
   if (platform && tenantId === undefined) return <div className="appointment-page"><EnterpriseSelector value={tenantId} onChange={id => setParams(current => { if (id === undefined) current.delete('tenantId'); else current.set('tenantId', String(id)); return current })} /><section className="catalog-panel appointment-scope-prompt"><Result status="info" title="请选择要管理的企业" subTitle="预约数据按企业和门店独立维护。" /></section></div>
   return <div className="appointment-page">
     {platform && <EnterpriseSelector value={tenantId} onChange={id => setParams(current => { if (id === undefined) current.delete('tenantId'); else current.set('tenantId', String(id)); return current })} />}
-    <QueryError error={query.error || departments.error} onRetry={() => { query.reload(); departments.reload() }} />
+    <QueryError error={query.error || departments.error || options.error} onRetry={() => { query.reload(); departments.reload(); options.reload() }} />
     <div className="appointment-toolbar">
       <div className="appointment-date-control"><Button type="text" icon={<LeftOutlined />} aria-label="前一天" onClick={() => changeDate(date.subtract(1, 'day'))} /><DatePicker bordered={false} value={date} allowClear={false} format="YYYY-MM-DD dddd" onChange={value => value && changeDate(value)} /><Button type="text" icon={<RightOutlined />} aria-label="后一天" onClick={() => changeDate(date.add(1, 'day'))} /><Button size="small" onClick={() => changeDate(dayjs())}>今天</Button></div>
       <div className="appointment-toolbar-actions"><Select value={store?.id} onChange={value => { setDepartmentId(value); setRevision(value => value + 1) }} loading={departments.loading} options={stores.map(value => ({ value: value.id, label: value.name }))} placeholder="请选择门店" aria-label="选择门店" /><Select value={viewMode} onChange={setViewMode} options={[{ value: 'staff', label: '技师维度' }, { value: 'room', label: '房间维度' }]} aria-label="选择日历维度" /><Select value={statusFilter} onChange={setStatusFilter} options={[{ value: 'ALL', label: '全部状态' }, ...statuses.map(item => ({ value: item.value, label: item.label }))]} aria-label="筛选预约状态" /><Button type="primary" icon={<PlusOutlined />} disabled={!writable || !store} onClick={() => openNew()}>新增预约</Button></div>
@@ -177,6 +184,6 @@ export default function AppointmentPage() {
     <section className="appointment-summary-card" aria-label="预约概览"><div className="appointment-summary-copy"><span className="appointment-summary-eyebrow">{store?.name ?? '未选择门店'}</span><strong>{date.format('YYYY年MM月DD日 dddd')}</strong><span>今日营业预约一览</span></div><div className="appointment-summary-stats">{counts.map(item => <button type="button" className="appointment-summary-stat" key={item.value} onClick={() => setStatusFilter(current => current === item.value ? 'ALL' : item.value)}><span className="appointment-summary-dot" style={{ background: item.color }} /><strong>{item.count}</strong><span>{item.label}</span></button>)}</div></section>
     <section className="appointment-board" aria-label="预约日历"><div className="appointment-board-header"><div className="appointment-board-title"><ClockCircleOutlined /><span>预约日历</span><Tag color="blue">{appointments.length} 条安排</Tag></div><Button type="link" icon={<PlusOutlined />} disabled={!writable || !store} onClick={() => openNew()}>快速新增</Button></div><div className="appointment-grid-header"><div className="appointment-grid-corner"><span>时间</span></div>{columns.map(column => <div className="appointment-grid-column-title" key={column}><span className="appointment-avatar"><UserOutlined /></span><div><strong>{column}</strong><small>{viewMode === 'staff' ? '可预约' : '空闲房间'}</small></div></div>)}</div><div className="appointment-grid-body"><div className="appointment-time-axis">{slots.map(slot => <div key={slot}>{slot}</div>)}</div>{columns.map(column => <div className="appointment-grid-column" key={column}>{slots.map(slot => <button type="button" className="appointment-grid-cell" key={`${column}-${slot}`} aria-label={`${column} ${slot} 新增预约`} disabled={!writable || !store} onClick={() => openNew(slot)} />)}{appointments.filter(item => (viewMode === 'staff' ? item.staff : item.room) === column).map(item => <button type="button" className="appointment-event" key={item.id} style={{ top: `${minutesOf(item.start) * (64 / 60)}px`, height: `${Math.max(36, item.duration * (64 / 60) - 8)}px`, borderLeftColor: item.color }} onClick={event => { event.stopPropagation(); openEdit(item) }}><span className="appointment-event-time">{item.start} · {item.duration}分钟</span><strong>{item.customer}</strong><span>{item.service}</span><small>{viewMode === 'staff' ? item.room : item.staff} · {statusMeta(item.status).label}</small><span className="appointment-event-delete" role="button" aria-label={`删除${item.customer}预约`} onClick={event => { event.stopPropagation(); remove(item) }}><DeleteOutlined /></span></button>)}</div>)}</div>{query.loading && <div className="appointment-loading-overlay"><Spin /></div>}{!query.loading && appointments.length === 0 && <div className="appointment-empty-overlay"><Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="当前筛选条件下暂无预约" /><Button type="primary" disabled={!writable || !store} onClick={() => openNew()}>新增第一条预约</Button></div>}</section>
     <div className="appointment-footnote"><CheckCircleOutlined /> 预约已接入企业数据，保存后可在门店端同步查看。</div>
-    <AppointmentEditor open={editor.open} appointment={editor.appointment} defaultStart={editor.start} viewMode={viewMode} onClose={() => setEditor({ open: false, start: '10:00' })} onSave={save} />
+    <AppointmentEditor open={editor.open} appointment={editor.appointment} defaultStart={editor.start} viewMode={viewMode} staffOptions={staffColumns} roomOptions={roomColumns} serviceOptions={serviceOptions} onClose={() => setEditor({ open: false, start: '10:00' })} onSave={save} />
   </div>
 }

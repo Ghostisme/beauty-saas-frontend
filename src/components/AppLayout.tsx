@@ -45,7 +45,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const canDataReports = user?.platformAdmin || can('home:read')
   const canInventory = user?.platformAdmin || can('inventory:read')
   const canStoreSettings = user?.platformAdmin || ['departments:read', 'rooms:read'].some(can)
-  const canStaffSettings = user?.platformAdmin || ['users:read', 'roles:read'].some(can)
+  const canStaffSettings = user?.platformAdmin || can('users:read')
   const canItemsSettings = user?.platformAdmin || can('items:read')
   const canCommissionSettings = user?.platformAdmin || can('commissions:read')
   const settingsMenuItems = [

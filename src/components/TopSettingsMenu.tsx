@@ -59,7 +59,7 @@ const settingsGroups: SettingsGroup[] = [
     icon: <TeamOutlined />,
     items: [
       { key: 'staff-list', label: '员工列表', route: '/staff-management?tab=users' },
-      { key: 'positions', label: '职位管理', route: '/staff-management?tab=roles' },
+      { key: 'positions', label: '角色权限', route: '/user-management?tab=roles', permission: 'roles:read' },
       { key: 'schedules', label: '员工排班' },
       { key: 'sop', label: 'SOP自检' },
       { key: 'attendance', label: '考勤打卡' },

@@ -34,7 +34,7 @@ function focusTabs(focus: ManagementFocus) {
 
 function focusCopy(focus: ManagementFocus) {
   if (focus === 'store') return { title: '门店管理', subtitle: '维护门店、营业房间与组织信息', icon: <ShopOutlined /> }
-  if (focus === 'staff') return { title: '门店员工管理', subtitle: '管理员工账号、门店归属与在职状态', icon: <TeamOutlined /> }
+  if (focus === 'staff') return { title: '门店员工管理', subtitle: '管理员工账号、职位与授权范围', icon: <TeamOutlined /> }
   return { title: '用户管理', subtitle: '管理本企业的账号、组织、房间与角色权限', icon: <TeamOutlined /> }
 }
 
@@ -99,7 +99,7 @@ function PlatformUserWorkspace({ focus = 'all' }: { focus?: ManagementFocus }) {
   return <div className="platform-workspace">
     <EnterpriseSelector value={tenantId} onChange={chooseEnterprise} />
     {tenantId !== undefined ? <SelectedEnterprise key={tenantId} id={tenantId} focus={focus} /> : <section className="iam-page" aria-labelledby="platform-users-title">
-      <div className="iam-page-heading"><div><h1 id="platform-users-title">{copy.icon} {copy.title}</h1><p>平台视图 · 查看所有企业的{focus === 'store' ? '门店与房间' : focus === 'staff' ? '员工' : '用户、组织、房间与角色'}</p></div><Tag color="blue">全部企业</Tag></div>
+      <div className="iam-page-heading"><div><h1 id="platform-users-title">{copy.icon} {copy.title}</h1><p>平台视图 · 查看所有企业的{focus === 'store' ? '门店与房间' : focus === 'staff' ? '员工与职位' : '用户、组织、房间与角色'}</p></div><Tag color="blue">全部企业</Tag></div>
       <div className="iam-content"><Tabs activeKey={activeKey} tabBarGutter={screens.md ? 32 : 12} destroyOnHidden onChange={key => setParams(currentQuery(next => next.set('tab', key)))} items={visibleTabs.map(tab => ({ key: tab.key, label: tab.label, children: <PlatformDataPanel key={tab.key} kind={tab.key as ResourceKind} onSelect={chooseEnterprise} /> }))} /></div>
     </section>}
   </div>

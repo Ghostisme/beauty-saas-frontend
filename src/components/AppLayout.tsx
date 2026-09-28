@@ -54,14 +54,16 @@ export function AppLayout({ children }: { children: ReactNode }) {
       ...(user?.platformAdmin || can('rooms:read') ? [{ key: '/store-management/rooms', icon: <ShopOutlined />, label: <Link to="/store-management?tab=rooms" onClick={() => setNavigationOpen(false)}>房间管理</Link> }] : []),
     ] : []),
     ...(canItemsSettings ? [{ key: '/items', icon: <AppstoreOutlined />, label: <Link to="/items?kind=PROJECT" onClick={() => setNavigationOpen(false)}>品项管理</Link> }] : []),
-    ...(canStaffSettings ? [{ key: '/staff-management', icon: <TeamOutlined />, label: <Link to="/staff-management?tab=users" onClick={() => setNavigationOpen(false)}>门店员工</Link> }] : []),
+    ...(canStaffSettings ? [{ key: '/staff-management', icon: <TeamOutlined />, label: <Link to="/staff-management?tab=users" onClick={() => setNavigationOpen(false)}>门店员工管理</Link> }] : []),
     ...(canCommissionSettings ? [{ key: '/commissions', icon: <FundOutlined />, label: <Link to="/commissions?kind=PROJECT" onClick={() => setNavigationOpen(false)}>提成管理</Link> }] : []),
   ]
   const menuItems: MenuProps['items'] = [
     ...(user?.platformAdmin
       ? [{ key: '/platform/tenants', icon: <BankOutlined />, label: <Link to="/platform/tenants" onClick={() => setNavigationOpen(false)}>企业管理</Link> }]
       : [{ key: '/', icon: <HomeFilled />, label: <Link to="/" onClick={() => setNavigationOpen(false)}>首页</Link> }]),
-    ...(canManage ? [{ key: '/user-management', icon: <TeamOutlined />, label: <Link to="/user-management" onClick={() => setNavigationOpen(false)}>用户管理</Link> }] : []),
+    ...(canManage ? [{ key: 'system-management', type: 'group' as const, label: '系统管理', children: [
+      { key: '/user-management', icon: <TeamOutlined />, label: <Link to="/user-management" onClick={() => setNavigationOpen(false)}>用户管理</Link> },
+    ] }] : []),
     ...(canCustomerModule || canOrdersModule ? [{ key: 'customer-operations', type: 'group' as const, label: '顾客经营', children: [
       ...(canCustomerModule ? [{ key: '/customers', icon: <UsergroupAddOutlined />, label: <Link to="/customers" onClick={() => setNavigationOpen(false)}>顾客</Link> }] : []),
       ...(canOrdersModule ? [{ key: '/orders', icon: <FileTextOutlined />, label: <Link to="/orders" onClick={() => setNavigationOpen(false)}>订单管理</Link> }] : []),
@@ -74,7 +76,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
     ...(canInventory ? [{ key: 'business-management', type: 'group' as const, label: '业务管理', children: [
       { key: '/inventory', icon: <InboxOutlined />, label: <Link to="/inventory" onClick={() => setNavigationOpen(false)}>库存管理</Link> },
     ] }] : []),
-    ...(settingsMenuItems.length ? [{ key: 'settings-management', type: 'group' as const, label: '业务设置', children: settingsMenuItems }] : []),
+    ...(settingsMenuItems.length ? [{ key: 'settings-management', type: 'group' as const, label: '设置', children: settingsMenuItems }] : []),
   ]
 
   function openDisplaySettings() {
@@ -140,7 +142,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
       </header>
 
       <aside className="workspace-sidebar" aria-label="主导航">
-        <Menu mode="inline" inlineCollapsed={compact} defaultOpenKeys={['customer-operations', 'data-reports', 'acquisition-tools', 'business-management', 'settings-management']} selectedKeys={[selectedNavigationKey]} items={menuItems} />
+        <Menu mode="inline" inlineCollapsed={compact} defaultOpenKeys={['system-management', 'customer-operations', 'data-reports', 'acquisition-tools', 'business-management', 'settings-management']} selectedKeys={[selectedNavigationKey]} items={menuItems} />
         <button
           type="button"
           className="device-mode"
@@ -162,7 +164,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
         onClose={() => setNavigationOpen(false)}
         className="navigation-drawer"
       >
-        <nav aria-label="移动端主导航"><Menu selectedKeys={[selectedNavigationKey]} defaultOpenKeys={['customer-operations', 'data-reports', 'acquisition-tools', 'business-management', 'settings-management']} mode="inline" items={menuItems} /></nav>
+        <nav aria-label="移动端主导航"><Menu selectedKeys={[selectedNavigationKey]} defaultOpenKeys={['system-management', 'customer-operations', 'data-reports', 'acquisition-tools', 'business-management', 'settings-management']} mode="inline" items={menuItems} /></nav>
         <div className="mobile-mode"><MobileOutlined /> 移动模式</div>
       </Drawer>
 

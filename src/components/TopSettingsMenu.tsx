@@ -35,10 +35,10 @@ const settingsGroups: SettingsGroup[] = [
     icon: <SettingOutlined />,
     items: [
       { key: 'permissions', label: '系统权限' },
-      { key: 'cashier', label: '收银设置' },
+      { key: 'cashier', label: '收银设置', route: '/billing' },
       { key: 'authorization', label: '授权管理' },
       { key: 'customers', label: '顾客设置' },
-      { key: 'income-expense', label: '收支设置' },
+      { key: 'income-expense', label: '收支设置', route: '/bookkeeping' },
       { key: 'advanced', label: '高级配置' },
     ],
   },

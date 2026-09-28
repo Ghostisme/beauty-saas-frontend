@@ -7,6 +7,7 @@ import { useSearchParams } from 'react-router-dom'
 import { GoalEmpty } from '@/components/GoalEmpty'
 import { useAuth } from '@/context/AuthContext'
 import { CustomerReminderContent } from '@/pages/CustomerReminderPage'
+import { EnterpriseSelector } from '@/components/iam/PlatformDataPanel'
 import { catalogRequest, useCatalogQuery } from '@/api/catalog'
 import { errorMessage, QueryError } from '@/components/iam/shared'
 import type { PageResult } from '@/types/iam'
@@ -466,11 +467,15 @@ export default function CustomersPage() {
   const [editingCustomer, setEditingCustomer] = useState<CustomerRecord>()
   const [assigningCustomers, setAssigningCustomers] = useState<CustomerRecord[]>([])
   const [assignTarget, setAssignTarget] = useState<'tracker' | 'adviser'>('tracker')
-  const customerQuery = useCatalogQuery<PageResult<CustomerRecord>>('/customers?page=1&pageSize=100', undefined, revision, !platform && canReadCustomers)
-  const storageQuery = useCatalogQuery<PageResult<StoredApiRecord>>('/customers/storage?page=1&pageSize=100', undefined, storageRevision, !platform && canReadCustomers)
+  const rawTenantId = platform ? params.get('tenantId') : null
+  const tenantId = rawTenantId === null ? undefined : Number(rawTenantId)
+  const tenantIdValid = rawTenantId === null || (Number.isSafeInteger(tenantId) && tenantId! > 0)
+  const scoped = !platform || tenantId !== undefined
+  const customerQuery = useCatalogQuery<PageResult<CustomerRecord>>('/customers?page=1&pageSize=100', tenantId, revision, canReadCustomers && scoped && tenantIdValid)
+  const storageQuery = useCatalogQuery<PageResult<StoredApiRecord>>('/customers/storage?page=1&pageSize=100', tenantId, storageRevision, canReadCustomers && scoped && tenantIdValid)
   const records = customerQuery.data?.records ?? []
   const storedRecords: StoredRecord[] = (storageQuery.data?.records ?? []).map(row => ({ id: row.id, customerId: row.customerId, storeId: row.storeId, storageType: row.storageType, quantity: Number(row.quantity), customer: row.customerName, store: row.storeName, operation: row.storageType === 'PRODUCT' ? '产品寄存' : '项目寄存', item: row.itemName, remark: row.remark ?? '' }))
-  const detailQuery = useCatalogQuery<CustomerRecord>(detailCustomer && typeof detailCustomer.id === 'number' ? `/customers/${detailCustomer.id}` : '/customers/0', undefined, revision, Boolean(detailCustomer && typeof detailCustomer.id === 'number' && canReadCustomers && !platform))
+  const detailQuery = useCatalogQuery<CustomerRecord>(detailCustomer && typeof detailCustomer.id === 'number' ? `/customers/${detailCustomer.id}` : '/customers/0', tenantId, revision, Boolean(detailCustomer && typeof detailCustomer.id === 'number' && canReadCustomers && scoped && tenantIdValid))
   const setTab = (next: CustomerTab) => setParams(currentQuery(current => { current.set('tab', next); if (next !== 'visit') current.delete('visitTab') }))
   const setVisitTab = (next: VisitTab) => setParams(currentQuery(current => { current.set('tab', 'visit'); current.set('visitTab', next) }))
   const exportRecords = () => { if (!downloadCustomerCsv(records)) void message.info('当前没有可导出的顾客记录') }
@@ -478,7 +483,7 @@ export default function CustomersPage() {
     const editing = typeof record.id === 'number'
     const payload = { name: record.name, phone: record.phone, code: record.code || undefined, level: record.level, source: record.source, remark: record.remark, tracker: record.tracker, adviser: record.adviser, storeId: record.storeId ?? undefined, cardCount: record.cardCount, balance: record.balance, spent: record.spent, visitCount: record.visitCount, lastVisit: record.lastVisit }
     try {
-      await catalogRequest(`/customers${editing ? `/${record.id}` : ''}`, undefined, { method: editing ? 'PUT' : 'POST', body: JSON.stringify(payload) })
+      await catalogRequest(`/customers${editing ? `/${record.id}` : ''}`, tenantId, { method: editing ? 'PUT' : 'POST', body: JSON.stringify(payload) })
       setRevision(value => value + 1)
       void message.success(editing ? '顾客档案已更新' : '顾客档案已保存')
     } catch (cause) { void message.error(errorMessage(cause)); throw cause }
@@ -489,7 +494,7 @@ export default function CustomersPage() {
       setCustomerModalOpen(false)
       return
     }
-    modal.confirm({ title: `删除“${row.name}”？`, content: '删除后不可恢复，请确认。', okText: '删除', okButtonProps: { danger: true }, cancelText: '取消', onOk: async () => { try { if (typeof row.id === 'number') await catalogRequest(`/customers/${row.id}`, undefined, { method: 'DELETE' }); setRevision(value => value + 1); void message.success('顾客档案已删除') } catch (cause) { void message.error(errorMessage(cause)); throw cause } } })
+    modal.confirm({ title: `删除“${row.name}”？`, content: '删除后不可恢复，请确认。', okText: '删除', okButtonProps: { danger: true }, cancelText: '取消', onOk: async () => { try { if (typeof row.id === 'number') await catalogRequest(`/customers/${row.id}`, tenantId, { method: 'DELETE' }); setRevision(value => value + 1); void message.success('顾客档案已删除') } catch (cause) { void message.error(errorMessage(cause)); throw cause } } })
   }
   const openAssignment = (rows: CustomerRecord[], target: 'tracker' | 'adviser') => {
     if (rows.length === 0) return
@@ -500,7 +505,7 @@ export default function CustomersPage() {
     try {
       await Promise.all(assigningCustomers.filter(row => typeof row.id === 'number').map(row => {
         const payload = { name: row.name, phone: row.phone, code: row.code || undefined, level: row.level, source: row.source, remark: row.remark, storeId: row.storeId ?? undefined, tracker: assignTarget === 'tracker' ? (name || undefined) : row.tracker, adviser: assignTarget === 'adviser' ? (name || undefined) : row.adviser, cardCount: row.cardCount, balance: row.balance, spent: row.spent, visitCount: row.visitCount, lastVisit: row.lastVisit }
-        return catalogRequest(`/customers/${row.id}`, undefined, { method: 'PUT', body: JSON.stringify(payload) })
+        return catalogRequest(`/customers/${row.id}`, tenantId, { method: 'PUT', body: JSON.stringify(payload) })
       }))
       setRevision(value => value + 1)
       setAssigningCustomers([])
@@ -509,7 +514,7 @@ export default function CustomersPage() {
   }
   const saveStorage = async (input: { customerId: number; storeId?: number | null; storageType: 'PRODUCT' | 'PROJECT'; itemName: string; quantity: number; remark?: string }) => {
     try {
-      await catalogRequest('/customers/storage', undefined, { method: 'POST', body: JSON.stringify(input) })
+      await catalogRequest('/customers/storage', tenantId, { method: 'POST', body: JSON.stringify(input) })
       setStorageRevision(value => value + 1)
       void message.success('寄存记录已保存')
     } catch (cause) { void message.error(errorMessage(cause)); throw cause }
@@ -525,8 +530,11 @@ export default function CustomersPage() {
           : tab === 'reminders'
             ? <CustomerReminderContent />
             : <CustomerListPanel records={records} onDetail={setDetailCustomer} onMore={handleMore} />
-  if (!canReadCustomers || platform) return <Result status={platform ? 'info' : '403'} title={platform ? '请选择企业后查看顾客' : '暂无顾客查看权限'} subTitle={platform ? '顾客数据按企业独立维护，请使用企业账号进入顾客经营。' : '请联系企业管理员分配顾客经营权限。'} />
-  return <section className="customers-page" aria-labelledby="customers-title">
+  if (!canReadCustomers) return <Result status="403" title="暂无顾客查看权限" subTitle="请联系企业管理员分配顾客经营权限。" />
+  const chooseEnterprise = (id?: number) => setParams(currentQuery(next => { if (id === undefined) next.delete('tenantId'); else next.set('tenantId', String(id)); next.delete('tab'); next.delete('visitTab') }))
+  if (!tenantIdValid) return <><EnterpriseSelector value={tenantId} onChange={chooseEnterprise} /><Result status="404" title="企业参数不正确" /></>
+  if (platform && tenantId === undefined) return <div className="customers-platform-workspace"><EnterpriseSelector value={tenantId} onChange={chooseEnterprise} /><section className="customer-panel customer-platform-scope-prompt"><Result status="info" title="请选择要管理的企业" subTitle="顾客数据按企业独立维护，选择企业后可查看和维护顾客档案。" /></section></div>
+  return <div className="customers-platform-workspace">{platform && <EnterpriseSelector value={tenantId} onChange={chooseEnterprise} />}<section className="customers-page" aria-labelledby="customers-title">
     <h1 id="customers-title" className="visually-hidden">顾客经营</h1>
     <div className="customer-tabs-bar">
       <Tabs className="customer-tabs" activeKey={tab} items={tabs} onChange={key => setTab(key as CustomerTab)} />
@@ -546,5 +554,5 @@ export default function CustomersPage() {
     <StorageModal open={storageModalOpen} customers={records} onClose={() => setStorageModalOpen(false)} onSave={saveStorage} />
     <RuleModal open={ruleModalOpen} onClose={() => setRuleModalOpen(false)} onSave={() => { setVisitRules(current => [...current, { id: `rule-${Date.now()}`, store: '当前门店', description: '回访后15天内到店计入回访后到店', updatedAt: '刚刚' }]); void message.success('回访规则已保存') }} />
     <Modal title="顾客跟进数据说明" open={explanationOpen} onCancel={() => setExplanationOpen(false)} footer={<Button type="primary" onClick={() => setExplanationOpen(false)}>知道了</Button>}><p>顾客跟进会汇总待回访、已回访和已作废记录，支持按门店、员工、计划时间和超时状态筛选。</p></Modal>
-  </section>
+  </section></div>
 }

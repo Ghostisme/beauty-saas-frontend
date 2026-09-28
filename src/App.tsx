@@ -16,6 +16,7 @@ const DataReportsPage = lazy(() => import('@/pages/DataReportsPage'))
 const SystemLogsPage = lazy(() => import('@/pages/SystemLogsPage'))
 const CatalogPage = lazy(() => import('@/pages/CatalogPage'))
 const AppointmentPage = lazy(() => import('@/pages/AppointmentPage'))
+const ReferenceModulesPage = lazy(() => import('@/pages/ReferenceModulesPage'))
 const AppLayout = lazy(() => import('@/components/AppLayout').then(module => ({ default: module.AppLayout })))
 
 function RequireAuth() {
@@ -56,6 +57,10 @@ export default function App() {
             <Route path="/system-logs" element={<SystemLogsPage />} />
             <Route path="/sms" element={<SmsPage />} />
             <Route path="/appointments" element={<AppointmentPage />} />
+            <Route path="/marketing" element={<ReferenceModulesPage kind="marketing" />} />
+            <Route path="/billing" element={<ReferenceModulesPage kind="billing" />} />
+            <Route path="/bookkeeping" element={<ReferenceModulesPage kind="bookkeeping" />} />
+            <Route path="/targets" element={<ReferenceModulesPage kind="targets" />} />
             <Route path="/store-management" element={<UserManagementPage focus="store" />} />
             <Route path="/staff-management" element={<UserManagementPage focus="staff" />} />
             <Route path="/items" element={<CatalogPage mode="items" />} />

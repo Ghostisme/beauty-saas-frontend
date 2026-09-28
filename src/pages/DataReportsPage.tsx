@@ -7,7 +7,7 @@ import dayjs, { type Dayjs } from 'dayjs'
 import { useSearchParams } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { GoalEmpty } from '@/components/GoalEmpty'
-import { downloadReportTable } from '@/lib/reportCsv'
+import { downloadCsvRows, downloadReportTable } from '@/lib/reportCsv'
 import '@/styles/data-reports.css'
 
 type MainReport = 'operating' | 'new-customer' | 'staff' | 'customer' | 'items' | 'liability' | 'center'
@@ -410,7 +410,7 @@ export default function DataReportsPage() {
     <MainNav active={main} onChange={selectMain} />
     <div className="data-reports-card" ref={reportRef}>
       {views.length > 0 && <SubNav items={views} active={view ?? views[0].key} onChange={selectView} />}
-      {main === 'center' && <ReportCenter onExport={title => message.info(`${title}导出接口待接入`)} />}
+      {main === 'center' && <ReportCenter onExport={title => { downloadCsvRows(`${title}_${dayjs().format('YYYY-MM-DD')}.csv`, ['报表名称', '导出时间'], [[title, dayjs().format('YYYY-MM-DD HH:mm:ss')]]); void message.success(`${title}已导出`) }} />}
       {main === 'operating' && <OperatingReport range={matrixPeriods.operating.range} mode={matrixPeriods.operating.mode} onRangeChange={value => updateMatrixRange('operating', value)} onModeChange={value => updateMatrixMode('operating', value)} />}
       {main === 'new-customer' && <NewCustomerReport range={matrixPeriods['new-customer'].range} mode={matrixPeriods['new-customer'].mode} onRangeChange={value => updateMatrixRange('new-customer', value)} onModeChange={value => updateMatrixMode('new-customer', value)} />}
       {main === 'staff' && <StaffReport view={view ?? 'summary'} range={range} matrixRange={matrixPeriods['staff-summary'].range} mode={matrixPeriods['staff-summary'].mode} onRangeChange={setRange} onMatrixRangeChange={value => updateMatrixRange('staff-summary', value)} onModeChange={value => updateMatrixMode('staff-summary', value)} />}

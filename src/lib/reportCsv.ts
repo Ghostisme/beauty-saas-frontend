@@ -29,6 +29,19 @@ function csvCell(value: string): string {
   return `"${safe.replace(/"/g, '""')}"`
 }
 
+export function downloadCsvRows(filename: string, headers: string[], rows: Array<Array<unknown>>): boolean {
+  const csv = [headers, ...rows].map(row => row.map(value => csvCell(String(value ?? ''))).join(',')).join('\r\n')
+  const url = URL.createObjectURL(new Blob(['\uFEFF', csv], { type: 'text/csv;charset=utf-8' }))
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename
+  document.body.append(link)
+  link.click()
+  link.remove()
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000)
+  return true
+}
+
 export function downloadReportTable(table: HTMLTableElement | null, filename: string): boolean {
   if (!table?.tHead || !table.tBodies[0]) return false
   const bodyRows = Array.from(table.tBodies[0].rows).filter(row => row.hasAttribute('data-row-key'))

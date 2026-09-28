@@ -5,6 +5,7 @@ import { SearchOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import { GoalEmpty } from '@/components/GoalEmpty'
 import { useAuth } from '@/context/AuthContext'
+import { downloadCsvRows } from '@/lib/reportCsv'
 import '@/styles/data-reports.css'
 
 type LogRow = { key: string; [key: string]: string }
@@ -24,7 +25,7 @@ export default function SystemLogsPage() {
   if (!session?.userInfo.platformAdmin && !can('home:read')) return <div className="data-reports-page"><div className="data-reports-card">暂无系统日志权限</div></div>
 
   return <section className="data-reports-page" aria-label="系统日志">
-    <div className="data-reports-nav"><strong className="system-logs-title">系统日志</strong><Button type="primary" onClick={() => message.info('日志导出接口待接入')}>导出日志</Button></div>
+    <div className="data-reports-nav"><strong className="system-logs-title">系统日志</strong><Button type="primary" onClick={() => { downloadCsvRows(`系统日志_${dayjs().format('YYYY-MM-DD')}.csv`, ['操作时间', '操作人', '操作模块', '操作内容', '操作结果'], []); void message.success('日志已导出') }}>导出日志</Button></div>
     <div className="data-reports-card">
       <div className="data-report-toolbar system-logs-toolbar">
         <DatePicker.RangePicker aria-label="日志日期范围" defaultValue={[dayjs().startOf('month'), dayjs()]} format="YYYY-MM-DD" allowClear={false} />

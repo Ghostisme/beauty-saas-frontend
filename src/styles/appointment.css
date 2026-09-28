@@ -58,6 +58,13 @@
 .appointment-color-dots { display: inline-flex; gap: 4px; }
 .appointment-color-dot { width: 12px; height: 12px; border-radius: 50%; }
 .appointment-color-tip { color: var(--text-tertiary); }
+.appointment-color-picker { display: flex; flex-wrap: wrap; gap: 6px; }
+.appointment-color-picker .ant-radio-button-wrapper { display: inline-flex; width: 34px; height: 30px; align-items: center; justify-content: center; padding: 0; border: 1px solid var(--border); border-radius: 7px; }
+.appointment-color-picker .ant-radio-button-wrapper::before { display: none; }
+.appointment-color-picker .ant-radio-button-wrapper-checked { border-color: var(--primary); background: var(--primary-bg); box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 15%, transparent); }
+.appointment-color-picker .appointment-color-dot { width: 15px; height: 15px; }
+.appointment-loading-overlay { position: absolute; inset: 54px 0 0; z-index: 3; display: grid; place-items: center; background: color-mix(in srgb, var(--surface) 58%, transparent); pointer-events: none; }
+.appointment-scope-prompt { min-height: 300px; align-items: center; justify-content: center; }
 .appointment-dialog-actions { display: flex; justify-content: flex-end; gap: 8px; }
 .workspace[data-layout-mode='pad'] .appointment-toolbar-actions .ant-select { min-width: 132px; }
 @media (max-width: 900px) {

@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { App, Button, DatePicker, Input, Select, Table } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import { SearchOutlined } from '@ant-design/icons'
@@ -19,6 +20,7 @@ const columns: ColumnsType<LogRow> = [
 export default function SystemLogsPage() {
   const { session, can } = useAuth()
   const { message } = App.useApp()
+  const [queryVersion, setQueryVersion] = useState(0)
   if (!session?.userInfo.platformAdmin && !can('home:read')) return <div className="data-reports-page"><div className="data-reports-card">暂无系统日志权限</div></div>
 
   return <section className="data-reports-page" aria-label="系统日志">
@@ -28,10 +30,10 @@ export default function SystemLogsPage() {
         <DatePicker.RangePicker aria-label="日志日期范围" defaultValue={[dayjs().startOf('month'), dayjs()]} format="YYYY-MM-DD" allowClear={false} />
         <Select aria-label="日志模块" placeholder="全部模块" options={[{ value: 'login', label: '登录日志' }, { value: 'user', label: '用户管理' }, { value: 'report', label: '数据报表' }]} />
         <Input aria-label="搜索操作人" placeholder="请输入操作人" suffix={<SearchOutlined />} allowClear />
-        <Button type="primary">查询</Button>
+        <Button type="primary" onClick={() => { setQueryVersion(value => value + 1); void message.success('查询完成') }}>查询</Button>
       </div>
       <div className="data-report-table-wrap">
-        <Table<LogRow> rowKey="key" columns={columns} dataSource={[]} pagination={false} scroll={{ x: 900 }} locale={{ emptyText: <div className="data-report-empty"><GoalEmpty /><span>暂无相关数据</span></div> }} />
+        <Table<LogRow> key={queryVersion} rowKey="key" columns={columns} dataSource={[]} pagination={false} scroll={{ x: 900 }} locale={{ emptyText: <div className="data-report-empty"><GoalEmpty /><span>暂无相关数据</span></div> }} />
       </div>
     </div>
   </section>

@@ -47,6 +47,9 @@
 .inventory-import-hint { margin: 0 0 16px; color: var(--text-tertiary); font-size: 13px; line-height: 1.7; }
 .inventory-catalog-panel .ant-tabs-nav { margin-bottom: 0; }
 .inventory-catalog-panel .ant-table-wrapper { min-width: 0; }
+.catalog-detail-grid { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 12px 16px; padding: 8px 0; }
+.catalog-detail-grid span { color: var(--text-tertiary); }
+.catalog-detail-grid strong { color: var(--text); font-weight: 500; }
 .inventory-placeholder { display: flex; min-height: 360px; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 24px; text-align: center; }
 .inventory-placeholder-icon { display: grid; width: 54px; height: 54px; place-items: center; border-radius: 16px; background: var(--primary-bg); color: var(--primary); font-size: 24px; }
 .inventory-placeholder h2 { margin: 4px 0 0; color: var(--text); font-size: 18px; font-weight: 600; }

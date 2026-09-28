@@ -1,4 +1,4 @@
-.reference-page { display: flex; min-width: 0; flex-direction: column; gap: 16px; }
+.reference-workspace, .reference-page { display: flex; min-width: 0; flex-direction: column; gap: 16px; }
 .reference-card, .reference-module-header { min-width: 0; border-radius: var(--radius); background: var(--surface); }
 .reference-module-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 0 24px; }
 .reference-module-tabs { min-width: 0; flex: 1; }

@@ -3,7 +3,7 @@ import type { ReactNode } from 'react'
 import { App, Button, Checkbox, DatePicker, Descriptions, Drawer, Dropdown, Input, InputNumber, Modal, Pagination, Result, Select, Space, Spin, Table, Tabs } from 'antd'
 import type { MenuProps, TableColumnsType } from 'antd'
 import { DownloadOutlined, DownOutlined, PlusOutlined, QuestionCircleOutlined, SearchOutlined } from '@ant-design/icons'
-import { useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { GoalEmpty } from '@/components/GoalEmpty'
 import { useAuth } from '@/context/AuthContext'
 import { CustomerReminderContent } from '@/pages/CustomerReminderPage'
@@ -36,6 +36,7 @@ interface CustomerRecord extends EmptyRow {
   storeId?: number | null
   storeName?: string
   source?: string
+  birthday?: string
   remark?: string
 }
 
@@ -389,7 +390,7 @@ function CustomerEditorModal({ open, initial, onClose, onSave }: { open: boolean
   return <Modal title={initial ? '编辑顾客档案' : '新建顾客档案'} open={open} onCancel={saving ? undefined : onClose} onOk={() => void save()} okButtonProps={{ loading: saving }} okText="保存" cancelText="取消"><div className="customer-form"><label>顾客姓名<Input aria-label="顾客姓名" value={name} onChange={event => setName(event.target.value)} placeholder="请输入顾客姓名" /></label><label>手机号<Input aria-label="顾客手机号" value={phone} onChange={event => setPhone(event.target.value)} placeholder="请输入手机号" /></label><label>顾客编号<Input aria-label="顾客编号" value={code} onChange={event => setCode(event.target.value)} placeholder="可选" /></label></div></Modal>
 }
 
-function CustomerDetailDrawer({ customer, loading, error, onRetry, onClose }: { customer?: CustomerRecord; loading?: boolean; error?: string; onRetry?: () => void; onClose: () => void }) {
+function CustomerDetailDrawer({ customer, loading, error, onRetry, onClose, onAction }: { customer?: CustomerRecord; loading?: boolean; error?: string; onRetry?: () => void; onClose: () => void; onAction?: (action: string, customer: CustomerRecord) => void }) {
   const assetContent = customer && <Descriptions bordered size="small" column={2}>
     <Descriptions.Item label="顾客姓名">{customer.name || '—'}</Descriptions.Item>
     <Descriptions.Item label="手机号">{customer.phone || '—'}</Descriptions.Item>
@@ -404,20 +405,31 @@ function CustomerDetailDrawer({ customer, loading, error, onRetry, onClose }: { 
     <Descriptions.Item label="上次消费信息" span={2}>{customer.lastVisit || '暂无消费信息'}</Descriptions.Item>
   </Descriptions>
   const profileContent = customer && <Descriptions bordered size="small" column={2}><Descriptions.Item label="顾客姓名">{customer.name || '—'}</Descriptions.Item><Descriptions.Item label="手机号">{customer.phone || '—'}</Descriptions.Item><Descriptions.Item label="顾客来源">{customer.source || '—'}</Descriptions.Item><Descriptions.Item label="所属门店">{customer.storeName || '当前门店'}</Descriptions.Item><Descriptions.Item label="备注" span={2}>{customer.remark || '—'}</Descriptions.Item></Descriptions>
-  return <Drawer title="会员详情" placement="right" width={840} open={Boolean(customer)} onClose={onClose} destroyOnHidden>
+  const profile = customer && <>
+    <div className="customer-detail-profile-head"><div className="customer-detail-avatar">{(customer.name || customer.phone || '顾').slice(0, 1)}</div><div><strong>{customer.phone ? maskPhone(customer.phone) : customer.name}</strong><span>{customer.phone || '—'}</span></div></div>
+    <div className="customer-detail-level"><strong>{customer.level || '无等级'}</strong><span>设置&nbsp;&nbsp;|&nbsp;&nbsp;进度</span></div>
+    <div className="customer-detail-fields">
+      {([['电话', customer.phone], ['生日', customer.birthday], ['会员编号', customer.code], ['所属门店', customer.storeName || '当前门店'], ['顾客来源', customer.source || '—'], ['推荐人', '—'], ['专属顾问', customer.adviser || '—'], ['跟踪员工', customer.tracker || '—']] as const).map(([label, value]) => <div key={label}><span>{label}：</span><strong>{value || '—'}</strong></div>)}
+    </div>
+    <div className="customer-detail-note"><strong>备注信息</strong><span>顾客禁忌</span><p>{customer.remark || '暂无'}</p></div>
+    <div className="customer-detail-note"><strong>顾客标签</strong><button type="button" aria-label="添加顾客标签">＋</button></div>
+    <div className="customer-detail-consumption"><div><strong>消费信息</strong><span>最后消费</span></div><div className="customer-detail-consumption-stats"><span><b>{customer.visitCount}</b>消费次数</span><span><b>¥{customer.spent.toFixed(2)}</b>累计消费金额</span><span><b>¥0.00</b>欠款金额</span></div></div>
+    <div className="customer-detail-actions">{['开单', '开卡', '预约', '赠送', '回访', '资料'].map(label => <Button key={label} size="small" onClick={() => onAction?.(label, customer)}>{label}</Button>)}</div>
+    <div className="customer-detail-wechat">微信：已绑定</div>
+  </>
+  return <Drawer title="会员详情" className="customer-detail-drawer" placement="right" width="min(1180px, calc(100vw - 144px))" open={Boolean(customer)} onClose={onClose} destroyOnHidden>
     {loading && <Spin />}
     {error && <QueryError error={error} onRetry={onRetry ?? (() => undefined)} />}
-    {!loading && !error && customer && <Tabs items={[
+    {!loading && !error && customer && <div className="customer-detail-layout"><aside className="customer-detail-sidebar">{profile}</aside><section className="customer-detail-main"><Tabs items={[
       { key: 'assets', label: '顾客资产', children: assetContent },
       { key: 'profile', label: '会员资料', children: profileContent },
       { key: 'records', label: '顾客记录', children: <div className="customer-detail-empty"><GoalEmpty /><span>暂无顾客记录</span></div> },
       { key: 'data', label: '客户数据', children: <div className="customer-detail-empty"><GoalEmpty /><span>暂无客户数据</span></div> },
-      { key: 'logs', label: '服务日志', children: <div className="customer-detail-empty"><GoalEmpty /><span>暂无服务日志</span></div> },
-      { key: 'followup', label: '回访', children: <div className="customer-detail-empty"><GoalEmpty /><span>暂无回访记录</span></div> },
+      { key: 'logs', label: '服务日志/回访', children: <div className="customer-detail-empty"><GoalEmpty /><span>暂无服务日志/回访</span></div> },
       { key: 'archive', label: '顾客档案', children: profileContent },
       { key: 'partner', label: '合伙人信息', children: <div className="customer-detail-empty"><GoalEmpty /><span>暂无合伙人信息</span></div> },
       { key: 'album', label: '顾客相册', children: <div className="customer-detail-empty"><GoalEmpty /><span>暂无顾客相册</span></div> },
-    ]} />}
+    ]} /></section></div>}
   </Drawer>
 }
 
@@ -453,6 +465,7 @@ function RuleModal({ open, onClose, onSave }: { open: boolean; onClose: () => vo
 export default function CustomersPage() {
   const { session, can } = useAuth()
   const { message, modal } = App.useApp()
+  const navigate = useNavigate()
   const platform = session?.userInfo.platformAdmin ?? false
   const canReadCustomers = platform || can('customers:read') || can('home:read')
   const [params, setParams] = useSearchParams()
@@ -551,7 +564,7 @@ export default function CustomersPage() {
     {customerQuery.error && <QueryError error={customerQuery.error} onRetry={customerQuery.reload} />}
     {!customerQuery.loading && !customerQuery.error && content}
     <CustomerEditorModal open={customerModalOpen || Boolean(editingCustomer)} initial={editingCustomer} onClose={() => { setCustomerModalOpen(false); setEditingCustomer(undefined) }} onSave={saveCustomer} />
-    <CustomerDetailDrawer customer={detailQuery.data ?? detailCustomer} loading={detailQuery.loading} error={detailQuery.error} onRetry={detailQuery.reload} onClose={() => setDetailCustomer(undefined)} />
+    <CustomerDetailDrawer customer={detailQuery.data ?? detailCustomer} loading={detailQuery.loading} error={detailQuery.error} onRetry={detailQuery.reload} onClose={() => setDetailCustomer(undefined)} onAction={(action, customer) => { if (action === '开单') navigate(`/billing?customerId=${customer.id}`); else if (action === '预约') navigate(`/appointments?customerId=${customer.id}`); else if (action === '回访') { setDetailCustomer(undefined); setTab('visit') } else void message.info(`${action}功能将在当前顾客模块继续完善`) }} />
     <CustomerAssignmentModal customers={assigningCustomers} target={assignTarget} onClose={() => setAssigningCustomers([])} onSave={assignCustomer} />
     <StorageModal open={storageModalOpen} customers={records} onClose={() => setStorageModalOpen(false)} onSave={saveStorage} />
     <RuleModal open={ruleModalOpen} onClose={() => setRuleModalOpen(false)} onSave={() => { setVisitRules(current => [...current, { id: `rule-${Date.now()}`, store: '当前门店', description: '回访后15天内到店计入回访后到店', updatedAt: '刚刚' }]); void message.success('回访规则已保存') }} />

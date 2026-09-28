@@ -5,6 +5,9 @@ import type { ColumnsType } from 'antd/es/table'
 import { DownloadOutlined, PlusOutlined, SearchOutlined } from '@ant-design/icons'
 import dayjs, { type Dayjs } from 'dayjs'
 import { downloadCsvRows } from '@/lib/reportCsv'
+import { useAuth } from '@/context/AuthContext'
+import { EnterpriseSelector } from '@/components/iam/PlatformDataPanel'
+import { useSearchParams } from 'react-router-dom'
 import '@/styles/reference-modules.css'
 
 type ModuleKind = 'marketing' | 'billing' | 'bookkeeping' | 'targets'
@@ -70,8 +73,12 @@ function TargetsPage() {
 }
 
 export default function ReferenceModulesPage({ kind }: { kind: ModuleKind }) {
-  if (kind === 'marketing') return <MarketingPage />
-  if (kind === 'billing') return <BillingPage />
-  if (kind === 'bookkeeping') return <BookkeepingPage />
-  return <TargetsPage />
+  const { session } = useAuth()
+  const [params, setParams] = useSearchParams()
+  const platform = session?.userInfo.platformAdmin ?? false
+  const rawTenant = platform ? params.get('tenantId') : null
+  const tenantId = rawTenant === null ? undefined : Number(rawTenant)
+  const chooseEnterprise = (id?: number) => setParams(current => { if (id === undefined) current.delete('tenantId'); else current.set('tenantId', String(id)); return current })
+  const page = kind === 'marketing' ? <MarketingPage /> : kind === 'billing' ? <BillingPage /> : kind === 'bookkeeping' ? <BookkeepingPage /> : <TargetsPage />
+  return <div className="reference-workspace">{platform && <EnterpriseSelector value={tenantId} onChange={chooseEnterprise} />}{page}</div>
 }

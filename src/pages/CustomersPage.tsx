@@ -19,6 +19,9 @@ type VisitTab = 'detail' | 'visit' | 'rules'
 interface EmptyRow { id: string | number }
 
 interface CustomerRecord extends EmptyRow {
+  tenantId?: number
+  tenantName?: string
+  tenantCode?: string
   name: string
   phone: string
   code: string
@@ -184,7 +187,7 @@ function TopActions({ children }: { children: ReactNode }) {
   return <div className="customer-top-actions">{children}</div>
 }
 
-function CustomerListPanel({ records, onDetail, onMore }: { records: CustomerRecord[]; onDetail: (row: CustomerRecord) => void; onMore: (action: 'edit' | 'delete', row: CustomerRecord) => void }) {
+function CustomerListPanel({ records, onDetail, onMore, showTenant = false }: { records: CustomerRecord[]; onDetail: (row: CustomerRecord) => void; onMore: (action: 'edit' | 'delete', row: CustomerRecord) => void; showTenant?: boolean }) {
   const [keyword, setKeyword] = useState('')
   const [cardFilterType, setCardFilterType] = useState('holding')
   const [cardName, setCardName] = useState('')
@@ -199,6 +202,7 @@ function CustomerListPanel({ records, onDetail, onMore }: { records: CustomerRec
   const pagedRecords = visibleRecords.slice((page - 1) * pageSize, page * pageSize)
   const columns: TableColumnsType<CustomerRecord> = [
     { title: '顾客信息', key: 'customer', width: 300, render: (_, row) => <div className="customer-cell-stack"><strong>{row.name || maskPhone(row.phone)}</strong><span>{row.phone}</span><span>顾客编号：{row.code}</span><span>{row.level}</span></div> },
+    ...(showTenant ? [{ title: '所属企业', key: 'tenant', width: 190, render: (_: unknown, row: CustomerRecord) => <div className="customer-cell-stack"><strong>{row.tenantName || '—'}</strong><span>{row.tenantCode || (row.tenantId ? `租户 ID ${row.tenantId}` : '—')}</span></div> }] : []),
     { title: '顾客资产', key: 'assets', width: 260, render: (_, row) => <div className="customer-cell-stack"><span>持卡：{row.cardCount}张</span><span>卡余额：{row.balance.toFixed(2)}元</span><span>次卡余量：0次</span></div> },
     { title: '累计消费', key: 'spent', width: 220, render: (_, row) => <div className="customer-cell-stack"><span>金额：{row.spent.toFixed(2)}元</span><span>次数：{row.visitCount}次</span></div> },
     { title: '上次消费信息', key: 'lastOrder', width: 300, render: (_, row) => row.lastVisit || '暂无消费信息' },
@@ -470,12 +474,11 @@ export default function CustomersPage() {
   const rawTenantId = platform ? params.get('tenantId') : null
   const tenantId = rawTenantId === null ? undefined : Number(rawTenantId)
   const tenantIdValid = rawTenantId === null || (Number.isSafeInteger(tenantId) && tenantId! > 0)
-  const scoped = !platform || tenantId !== undefined
-  const customerQuery = useCatalogQuery<PageResult<CustomerRecord>>('/customers?page=1&pageSize=100', tenantId, revision, canReadCustomers && scoped && tenantIdValid)
-  const storageQuery = useCatalogQuery<PageResult<StoredApiRecord>>('/customers/storage?page=1&pageSize=100', tenantId, storageRevision, canReadCustomers && scoped && tenantIdValid)
+  const customerQuery = useCatalogQuery<PageResult<CustomerRecord>>('/customers?page=1&pageSize=100', tenantId, revision, canReadCustomers && tenantIdValid)
+  const storageQuery = useCatalogQuery<PageResult<StoredApiRecord>>('/customers/storage?page=1&pageSize=100', tenantId, storageRevision, canReadCustomers && tenantIdValid)
   const records = customerQuery.data?.records ?? []
   const storedRecords: StoredRecord[] = (storageQuery.data?.records ?? []).map(row => ({ id: row.id, customerId: row.customerId, storeId: row.storeId, storageType: row.storageType, quantity: Number(row.quantity), customer: row.customerName, store: row.storeName, operation: row.storageType === 'PRODUCT' ? '产品寄存' : '项目寄存', item: row.itemName, remark: row.remark ?? '' }))
-  const detailQuery = useCatalogQuery<CustomerRecord>(detailCustomer && typeof detailCustomer.id === 'number' ? `/customers/${detailCustomer.id}` : '/customers/0', tenantId, revision, Boolean(detailCustomer && typeof detailCustomer.id === 'number' && canReadCustomers && scoped && tenantIdValid))
+  const detailQuery = useCatalogQuery<CustomerRecord>(detailCustomer && typeof detailCustomer.id === 'number' ? `/customers/${detailCustomer.id}` : '/customers/0', detailCustomer?.tenantId ?? tenantId, revision, Boolean(detailCustomer && typeof detailCustomer.id === 'number' && canReadCustomers && tenantIdValid))
   const setTab = (next: CustomerTab) => setParams(currentQuery(current => { current.set('tab', next); if (next !== 'visit') current.delete('visitTab') }))
   const setVisitTab = (next: VisitTab) => setParams(currentQuery(current => { current.set('tab', 'visit'); current.set('visitTab', next) }))
   const exportRecords = () => { if (!downloadCustomerCsv(records)) void message.info('当前没有可导出的顾客记录') }
@@ -483,7 +486,7 @@ export default function CustomersPage() {
     const editing = typeof record.id === 'number'
     const payload = { name: record.name, phone: record.phone, code: record.code || undefined, level: record.level, source: record.source, remark: record.remark, tracker: record.tracker, adviser: record.adviser, storeId: record.storeId ?? undefined, cardCount: record.cardCount, balance: record.balance, spent: record.spent, visitCount: record.visitCount, lastVisit: record.lastVisit }
     try {
-      await catalogRequest(`/customers${editing ? `/${record.id}` : ''}`, tenantId, { method: editing ? 'PUT' : 'POST', body: JSON.stringify(payload) })
+      await catalogRequest(`/customers${editing ? `/${record.id}` : ''}`, editing ? (record.tenantId ?? tenantId) : tenantId, { method: editing ? 'PUT' : 'POST', body: JSON.stringify(payload) })
       setRevision(value => value + 1)
       void message.success(editing ? '顾客档案已更新' : '顾客档案已保存')
     } catch (cause) { void message.error(errorMessage(cause)); throw cause }
@@ -494,7 +497,7 @@ export default function CustomersPage() {
       setCustomerModalOpen(false)
       return
     }
-    modal.confirm({ title: `删除“${row.name}”？`, content: '删除后不可恢复，请确认。', okText: '删除', okButtonProps: { danger: true }, cancelText: '取消', onOk: async () => { try { if (typeof row.id === 'number') await catalogRequest(`/customers/${row.id}`, tenantId, { method: 'DELETE' }); setRevision(value => value + 1); void message.success('顾客档案已删除') } catch (cause) { void message.error(errorMessage(cause)); throw cause } } })
+    modal.confirm({ title: `删除“${row.name}”？`, content: '删除后不可恢复，请确认。', okText: '删除', okButtonProps: { danger: true }, cancelText: '取消', onOk: async () => { try { if (typeof row.id === 'number') await catalogRequest(`/customers/${row.id}`, row.tenantId ?? tenantId, { method: 'DELETE' }); setRevision(value => value + 1); void message.success('顾客档案已删除') } catch (cause) { void message.error(errorMessage(cause)); throw cause } } })
   }
   const openAssignment = (rows: CustomerRecord[], target: 'tracker' | 'adviser') => {
     if (rows.length === 0) return
@@ -505,7 +508,7 @@ export default function CustomersPage() {
     try {
       await Promise.all(assigningCustomers.filter(row => typeof row.id === 'number').map(row => {
         const payload = { name: row.name, phone: row.phone, code: row.code || undefined, level: row.level, source: row.source, remark: row.remark, storeId: row.storeId ?? undefined, tracker: assignTarget === 'tracker' ? (name || undefined) : row.tracker, adviser: assignTarget === 'adviser' ? (name || undefined) : row.adviser, cardCount: row.cardCount, balance: row.balance, spent: row.spent, visitCount: row.visitCount, lastVisit: row.lastVisit }
-        return catalogRequest(`/customers/${row.id}`, tenantId, { method: 'PUT', body: JSON.stringify(payload) })
+        return catalogRequest(`/customers/${row.id}`, row.tenantId ?? tenantId, { method: 'PUT', body: JSON.stringify(payload) })
       }))
       setRevision(value => value + 1)
       setAssigningCustomers([])
@@ -529,18 +532,17 @@ export default function CustomersPage() {
           ? <CustomerFollowupPanel records={records} onDetail={setDetailCustomer} onAssign={openAssignment} />
           : tab === 'reminders'
             ? <CustomerReminderContent />
-            : <CustomerListPanel records={records} onDetail={setDetailCustomer} onMore={handleMore} />
+            : <CustomerListPanel records={records} showTenant={platform && tenantId === undefined} onDetail={setDetailCustomer} onMore={handleMore} />
   if (!canReadCustomers) return <Result status="403" title="暂无顾客查看权限" subTitle="请联系企业管理员分配顾客经营权限。" />
   const chooseEnterprise = (id?: number) => setParams(currentQuery(next => { if (id === undefined) next.delete('tenantId'); else next.set('tenantId', String(id)); next.delete('tab'); next.delete('visitTab') }))
   if (!tenantIdValid) return <><EnterpriseSelector value={tenantId} onChange={chooseEnterprise} /><Result status="404" title="企业参数不正确" /></>
-  if (platform && tenantId === undefined) return <div className="customers-platform-workspace"><EnterpriseSelector value={tenantId} onChange={chooseEnterprise} /><section className="customer-panel customer-platform-scope-prompt"><Result status="info" title="请选择要管理的企业" subTitle="顾客数据按企业独立维护，选择企业后可查看和维护顾客档案。" /></section></div>
   return <div className="customers-platform-workspace">{platform && <EnterpriseSelector value={tenantId} onChange={chooseEnterprise} />}<section className="customers-page" aria-labelledby="customers-title">
     <h1 id="customers-title" className="visually-hidden">顾客经营</h1>
     <div className="customer-tabs-bar">
       <Tabs className="customer-tabs" activeKey={tab} items={tabs} onChange={key => setTab(key as CustomerTab)} />
       <TopActions>
-        {tab === 'list' && <Button type="primary" icon={<PlusOutlined />} onClick={() => setCustomerModalOpen(true)}>新建顾客档案</Button>}
-        {tab === 'stored' && <Button type="primary" icon={<PlusOutlined />} onClick={() => setStorageModalOpen(true)}>新建寄存</Button>}
+        {tab === 'list' && <Button type="primary" icon={<PlusOutlined />} disabled={platform && tenantId === undefined} title={platform && tenantId === undefined ? '选择企业后可新建顾客档案' : undefined} onClick={() => setCustomerModalOpen(true)}>新建顾客档案</Button>}
+        {tab === 'stored' && <Button type="primary" icon={<PlusOutlined />} disabled={platform && tenantId === undefined} title={platform && tenantId === undefined ? '选择企业后可新建寄存' : undefined} onClick={() => setStorageModalOpen(true)}>新建寄存</Button>}
         {tab === 'followup' && <Button type="primary" icon={<QuestionCircleOutlined />} onClick={() => setExplanationOpen(true)}>数据说明</Button>}
         {(tab === 'list' || tab === 'advanced' || tab === 'stored' || (tab === 'visit' && visitTab === 'detail')) && <Button icon={<DownloadOutlined />} onClick={exportRecords}>批量导出</Button>}
       </TopActions>

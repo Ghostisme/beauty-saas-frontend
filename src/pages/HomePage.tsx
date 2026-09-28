@@ -160,7 +160,7 @@ export default function HomePage() {
               <div className="metric-label">
                 {metric.name}
                 {metric.hint && <Tooltip title={metric.hint}>
-                  <button type="button" className="metric-info" aria-label="现金统计说明"><InfoCircleFilled /></button>
+                  <span className="metric-info" aria-label="现金统计说明"><InfoCircleFilled /></span>
                 </Tooltip>}
               </div>
               <Statistic value={0} suffix={metric.unit} />

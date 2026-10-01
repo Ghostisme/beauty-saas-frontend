@@ -1,18 +1,20 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import dayjs, { type Dayjs } from 'dayjs'
-import { App, Button, DatePicker, Form, Input, InputNumber, Modal, Pagination, Result, Select, Space, Spin, Switch, Table, Tabs, Tag, Upload, type FormInstance } from 'antd'
+import { App, Button, DatePicker, Drawer, Form, Input, InputNumber, Modal, Pagination, Radio, Result, Select, Space, Spin, Switch, Table, Tabs, Tag, type FormInstance } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
-import { DeleteOutlined, DownloadOutlined, FileAddOutlined, PlusOutlined, ReloadOutlined, SwapOutlined } from '@ant-design/icons'
+import { DeleteOutlined, DownloadOutlined, PlusOutlined, ReloadOutlined, SwapOutlined } from '@ant-design/icons'
 import { useSearchParams } from 'react-router-dom'
 import { errorMessage, QueryError, paginationOptions } from '@/components/iam/shared'
 import { useAuth } from '@/context/AuthContext'
 import { catalogRequest, useCatalogQuery } from '@/api/catalog'
 import type { Department, PageResult } from '@/types/iam'
-import type { CatalogItem, InventoryAccountRow, InventoryBatchRow, InventoryChangeRow, InventoryChangeType, InventoryDocumentRow, InventoryDocumentStatus, InventoryDocumentType, InventoryRow } from '@/types/catalog'
+import type { CatalogItem, InventoryAccountRow, InventoryBatchRow, InventoryChangeRow, InventoryChangeType, InventoryDocumentRow, InventoryDocumentStatus, InventoryDocumentType, InventoryRow, InventorySettings } from '@/types/catalog'
+import InventoryLiquidationWorkspace from './InventoryLiquidationWorkspace'
 import '@/styles/catalog.css'
 
 export const inventoryTabs = [
   { key: 'stock', label: '库存查询' },
+  { key: 'opening', label: '期初期末库存查询' },
   { key: 'changes', label: '出入明细' },
   { key: 'batch', label: '批次管理' },
   { key: 'liquidation', label: '库存盘点' },
@@ -26,6 +28,7 @@ function money(value: number | string | undefined) { return value === undefined 
 function date(value?: string) { return value ? value.replace('T', ' ').slice(0, 16) : '—' }
 function departmentOptions(departments: Department[]) { return departments.filter(item => item.type === 'STORE' && item.status === 1).map(item => ({ value: item.id, label: item.name })) }
 function productOptions(products: CatalogItem[]) { return products.filter(item => item.status === 1).map(item => ({ value: item.id, label: `${item.name} · ${item.code}` })) }
+const DEFAULT_INVENTORY_SETTINGS: InventorySettings = { preventOrderOnShortage: false, transferAutoConfirmEnabled: false, transferAutoConfirmDays: 0, stockAlertEnabled: false, stockAlertValue: 0, expiryAlertEnabled: false, expiryAlertMonths: 6, salesDeductInventory: true, deleteProductSyncInventory: true, version: 0 }
 function downloadCsv(filename: string, headers: string[], rows: Array<Array<string | number | undefined | null>>) {
   if (!rows.length) return false
   const cell = (value: string | number | undefined | null) => `"${String(value ?? '').replaceAll('"', '""')}"`
@@ -42,30 +45,13 @@ function InventoryDocumentForm({ open, tenantId, departments, initialType = 'LIQ
   return <Modal className="catalog-modal" width={560} centered title={initialType === 'LIQUIDATION' ? '新建库存盘点单' : initialType === 'TRANSFER_IN' ? '新建调拨入库' : '新建调拨出库'} open={open} onCancel={onClose} destroyOnClose footer={null} afterOpenChange={visible => { if (visible) form.setFieldsValue({ docType: initialType, documentDate: dayjs(), status: 'DRAFT' }) }}><Form form={form} layout="vertical" onFinish={submit} initialValues={{ docType: initialType, documentDate: dayjs(), status: 'DRAFT' }}><Form.Item name="docType" hidden><Input /></Form.Item>{initialType === 'TRANSFER_IN' && <Form.Item name="targetDepartmentId" label="调入仓库" rules={[{ required: true, message: '请选择调入门店' }]}><Select options={options} /></Form.Item>}{initialType === 'TRANSFER_OUT' && <Form.Item name="sourceDepartmentId" label="调出仓库" rules={[{ required: true, message: '请选择调出门店' }]}><Select options={options} /></Form.Item>}{initialType === 'LIQUIDATION' && <Form.Item name="sourceDepartmentId" label="仓库 / 门店"><Select allowClear options={options} /></Form.Item>}<Space className="catalog-form-row" align="start"><Form.Item name="documentNo" label="单据号"><Input maxLength={80} placeholder="不填写则自动生成" /></Form.Item><Form.Item name="documentDate" label="日期" rules={[{ required: true }]}><DatePicker style={{ width: '100%' }} /></Form.Item></Space><Space className="catalog-form-row" align="start"><Form.Item name="operatorName" label="经办人"><Input maxLength={80} /></Form.Item><Form.Item name="status" label="状态"><Select options={[{ value: 'DRAFT', label: '草稿' }, { value: 'PENDING', label: '待处理' }, { value: 'CONFIRMED', label: '已确认' }]} /></Form.Item></Space><Form.Item name="remark" label="备注"><Input.TextArea rows={3} maxLength={300} /></Form.Item><div className="catalog-dialog-actions"><Button onClick={onClose}>取消</Button><Button type="primary" htmlType="submit" loading={saving}>保存</Button></div></Form></Modal>
 }
 
-function InventoryCsvImport({ open, tenantId, onClose, onSaved }: { open: boolean; tenantId?: number; onClose: () => void; onSaved: () => void }) {
-  const { message } = App.useApp(); const [uploading, setUploading] = useState(false)
-  async function importFile(file: File) {
-    setUploading(true)
-    try {
-      const text = await file.text(); const rows = text.split(/\r?\n/).map(row => row.trim()).filter(Boolean).slice(1)
-      for (const row of rows) {
-        const [documentNo, documentDate, operatorName, remark] = row.split(',').map(value => value.trim())
-        if (!documentDate) continue
-        await catalogRequest('/inventory/documents', tenantId, { method: 'POST', body: JSON.stringify({ docType: 'LIQUIDATION', documentNo, documentDate, operatorName, status: 'DRAFT', remark }) })
-      }
-      void message.success('库存盘点单已导入'); onSaved(); onClose()
-    } catch (cause) { void message.error(errorMessage(cause)) } finally { setUploading(false) }
-    return Upload.LIST_IGNORE
-  }
-  return <Modal className="catalog-modal" width={480} centered title="导入库存盘点单" open={open} onCancel={onClose} footer={null}><p className="inventory-import-hint">CSV 首行为表头，后续按“单据号,日期,经办人,备注”填写。</p><Upload accept=".csv,.txt" maxCount={1} showUploadList={false} beforeUpload={importFile}><Button type="primary" icon={<FileAddOutlined />} loading={uploading}>选择文件</Button></Upload></Modal>
-}
-
-function InventoryMovementForm({ open, tenantId, departments, products, initialType = 'IN', onClose, onSaved }: { open: boolean; tenantId?: number; departments: Department[]; products: CatalogItem[]; initialType?: 'IN' | 'OUT'; onClose: () => void; onSaved: () => void }) {
+function InventoryMovementForm({ open, tenantId, departments, products, revision, initialType = 'IN', onClose, onSaved }: { open: boolean; tenantId?: number; departments: Department[]; products: CatalogItem[]; revision: number; initialType?: 'IN' | 'OUT'; onClose: () => void; onSaved: () => void }) {
   const [form] = Form.useForm(); const [saving, setSaving] = useState(false); const { message } = App.useApp()
   const departmentId = Form.useWatch('departmentId', form) as number | undefined
-  const stockQuery = useCatalogQuery<PageResult<InventoryRow>>(`/inventory?page=1&pageSize=100&keyword=${departmentId ? `&departmentId=${departmentId}` : ''}`, tenantId, 0, open && Boolean(departmentId))
+  const stockQuery = useCatalogQuery<PageResult<InventoryRow>>(`/inventory?page=1&pageSize=100&keyword=${departmentId ? `&departmentId=${departmentId}` : ''}`, tenantId, revision, open && Boolean(departmentId))
   const submit = async (values: Record<string, unknown>) => {
     const lines = Array.isArray(values.lines) ? values.lines as Array<Record<string, unknown>> : []
+    if (!lines.length) { void message.warning('请先添加产品明细'); return }
     setSaving(true)
     try {
       await catalogRequest('/inventory/documents/with-lines', tenantId, { method: 'POST', body: JSON.stringify({
@@ -82,44 +68,57 @@ function InventoryMovementForm({ open, tenantId, departments, products, initialT
           unitCost: line.unitCost ?? 0,
           batchName: line.batchName || undefined,
           productionDate: line.productionDate ? (line.productionDate as Dayjs).format('YYYY-MM-DD') : undefined,
-          expiryDate: line.expiryDate ? (line.expiryDate as Dayjs).format('YYYY-MM-DD') : undefined,
+          expiryDate: line.expiryMonths && line.productionDate
+            ? (line.productionDate as Dayjs).add(Number(line.expiryMonths), 'month').format('YYYY-MM-DD')
+            : line.expiryDate ? (line.expiryDate as Dayjs).format('YYYY-MM-DD') : undefined,
           remark: line.remark || undefined,
         })),
       }) })
       void message.success(initialType === 'IN' ? '入库单已提交' : '出库单已提交'); onSaved(); onClose(); form.resetFields()
     } catch (cause) { void message.error(errorMessage(cause)) } finally { setSaving(false) }
   }
-  return <Modal className="catalog-modal inventory-movement-modal" width={1080} centered title={initialType === 'IN' ? '产品入库' : '产品出库'} open={open} onCancel={onClose} destroyOnClose footer={null} afterOpenChange={visible => { if (visible) form.setFieldsValue({ documentDate: dayjs(), lines: [{ quantity: 1, unitCost: 0 }] }) }}>
-    <Form form={form} layout="vertical" onFinish={submit} initialValues={{ documentDate: dayjs(), lines: [{ quantity: 1, unitCost: 0 }] }}>
+  const isInbound = initialType === 'IN'
+  return <Drawer className="inventory-movement-drawer" placement="right" size="min(1480px, calc(100vw - 80px))" title={isInbound ? '产品入库' : '产品出库'} open={open} onClose={onClose} destroyOnHidden footer={<div className="drawer-actions"><Button onClick={onClose}>取消</Button><Button type="primary" onClick={() => form.submit()} loading={saving}>{isInbound ? '提交入库' : '提交出库'}</Button></div>} afterOpenChange={visible => { if (visible) { form.resetFields(); form.setFieldsValue({ documentDate: dayjs(), lines: [] }) } }}>
+    <Form form={form} layout="vertical" onFinish={submit} initialValues={{ documentDate: dayjs(), lines: [] }}>
       <div className="movement-header-grid">
-        <Form.Item name="departmentId" label={initialType === 'IN' ? '入库仓库' : '出库仓库'} rules={[{ required: true, message: '请选择门店 / 仓库' }]}><Select options={departmentOptions(departments)} placeholder="请选择门店 / 仓库" /></Form.Item>
+        <Form.Item name="departmentId" label={isInbound ? '入库仓库' : '出库仓库'} rules={[{ required: true, message: '请选择门店 / 仓库' }]}><Select options={departmentOptions(departments)} placeholder="请选择门店 / 仓库" /></Form.Item>
         <Form.Item label="单据类型"><Input value={initialType === 'IN' ? '产品入库' : '产品出库'} readOnly /></Form.Item>
-        <Form.Item name="documentDate" label={initialType === 'IN' ? '入库时间' : '出库时间'} rules={[{ required: true, message: '请选择时间' }]}><DatePicker showTime style={{ width: '100%' }} /></Form.Item>
+        <Form.Item name="documentDate" label={isInbound ? '入库时间' : '出库时间'} rules={[{ required: true, message: '请选择时间' }]}><DatePicker showTime style={{ width: '100%' }} /></Form.Item>
         <Form.Item name="operatorName" label="经办人"><Input placeholder="负责人" maxLength={80} /></Form.Item>
         <Form.Item name="documentNo" label="单据号"><Input placeholder="不填写则自动生成" maxLength={80} /></Form.Item>
       </div>
       <Form.List name="lines">
-        {(fields, { add, remove }) => <><div className="movement-lines-heading"><strong>产品明细</strong><Button type="primary" ghost icon={<PlusOutlined />} onClick={() => add({ quantity: 1, unitCost: 0 })}>添加产品</Button></div><div className="movement-lines-table">
-          <div className="movement-line-header"><span>#</span><span>产品</span><span>当前库存</span><span>数量</span><span>单位成本</span><span>金额</span><span>批次</span><span>生产日期</span><span>保质期</span><span>备注</span><span>操作</span></div>
+        {(fields, { add, remove }) => <><div className="movement-lines-heading"><strong>产品明细</strong><Button type="primary" ghost icon={<PlusOutlined />} onClick={() => add({ quantity: 1, unitCost: 0 })}>添加产品</Button></div><div className={`movement-lines-table ${isInbound ? 'is-inbound' : 'is-outbound'}`}>
+          <div className="movement-line-header">{isInbound ? (<><span>#</span><span>编号</span><span>产品名称</span><span>单位</span><span>当前库存</span><span>入库数量</span><span>成本价</span><span>成本总额</span><span>生产日期</span><span>保质期(月)</span><span>批次</span><span>备注</span><span>操作</span></>) : (<><span>#</span><span>编号</span><span>产品名称</span><span>单位</span><span>当前库存</span><span>出库数量</span><span>备注</span><span>操作</span></>)}</div>
+          {!fields.length && <div className="movement-empty"><div className="inventory-placeholder-icon"><PlusOutlined /></div><span>暂无相关数据</span><small>点击“添加产品”开始填写</small></div>}
           {fields.map((field, index) => <div className="movement-line-row" key={field.key}>
             <span className="movement-line-index">{index + 1}</span>
+            <MovementLineCode form={form} name={field.name} products={products} />
             <Form.Item name={[field.name, 'itemId']} rules={[{ required: true, message: '请选择产品' }]}><Select showSearch optionFilterProp="label" options={productOptions(products)} placeholder="请选择产品" /></Form.Item>
+            <MovementLineUnit form={form} name={field.name} products={products} />
             <MovementLineStock form={form} name={field.name} rows={stockQuery.data?.records ?? []} />
             <Form.Item name={[field.name, 'quantity']} rules={[{ required: true, message: '请输入数量' }]}><InputNumber min={0.001} precision={3} style={{ width: '100%' }} /></Form.Item>
-            <Form.Item name={[field.name, 'unitCost']} rules={[{ required: true, message: '请输入成本' }]}><InputNumber min={0} precision={2} style={{ width: '100%' }} /></Form.Item>
-            <MovementLineTotal form={form} name={field.name} />
-            <Form.Item name={[field.name, 'batchName']}><Input placeholder="批次" maxLength={120} /></Form.Item>
-            <Form.Item name={[field.name, 'productionDate']}><DatePicker style={{ width: '100%' }} /></Form.Item>
-            <Form.Item name={[field.name, 'expiryDate']}><DatePicker style={{ width: '100%' }} /></Form.Item>
-            <Form.Item name={[field.name, 'remark']}><Input placeholder="备注" maxLength={300} /></Form.Item>
-            <Button type="text" danger icon={<DeleteOutlined />} disabled={fields.length === 1} aria-label={`删除第${index + 1}条产品`} onClick={() => remove(field.name)} />
+            {isInbound ? <><Form.Item name={[field.name, 'unitCost']} rules={[{ required: true, message: '请输入成本' }]}><InputNumber min={0} precision={2} style={{ width: '100%' }} /></Form.Item><MovementLineTotal form={form} name={field.name} /><Form.Item name={[field.name, 'productionDate']}><DatePicker style={{ width: '100%' }} /></Form.Item><Form.Item name={[field.name, 'expiryMonths']}><InputNumber min={1} precision={0} style={{ width: '100%' }} placeholder="月数" /></Form.Item><Form.Item name={[field.name, 'batchName']}><Input placeholder="批次" maxLength={120} /></Form.Item><Form.Item name={[field.name, 'remark']}><Input placeholder="备注" maxLength={300} /></Form.Item></> : <><Form.Item name={[field.name, 'unitCost']} hidden initialValue={0}><InputNumber /></Form.Item><Form.Item name={[field.name, 'remark']}><Input placeholder="备注" maxLength={300} /></Form.Item></>}
+            <Button type="text" danger icon={<DeleteOutlined />} aria-label={`删除第${index + 1}条产品`} onClick={() => remove(field.name)} />
           </div>)}
         </div></>}
       </Form.List>
-      <Form.Item name="remark" label="单据备注"><Input.TextArea rows={3} maxLength={300} placeholder="请输入备注" /></Form.Item>
-      <div className="catalog-dialog-actions"><Button onClick={onClose}>取消</Button><Button type="primary" htmlType="submit" loading={saving}>{initialType === 'IN' ? '提交入库' : '提交出库'}</Button></div>
+      <div className="movement-footer-fields">
+        <Form.Item label="制单人"><Input value="负责人" disabled /></Form.Item>
+        <Form.Item name="remark" label="备注"><Input placeholder="请输入备注" maxLength={300} /></Form.Item>
+      </div>
     </Form>
-  </Modal>
+  </Drawer>
+}
+
+function MovementLineCode({ form, name, products }: { form: FormInstance; name: number; products: CatalogItem[] }) {
+  const itemId = Form.useWatch(['lines', name, 'itemId'], form) as number | undefined
+  return <span className="movement-line-meta">{products.find(item => item.id === itemId)?.code ?? '—'}</span>
+}
+
+function MovementLineUnit({ form, name, products }: { form: FormInstance; name: number; products: CatalogItem[] }) {
+  const itemId = Form.useWatch(['lines', name, 'itemId'], form) as number | undefined
+  return <span className="movement-line-meta">{products.find(item => item.id === itemId)?.unit ?? '—'}</span>
 }
 
 function MovementLineTotal({ form, name }: { form: FormInstance; name: number }) {
@@ -176,18 +175,41 @@ function DocumentTable({ query, page, setPage }: { query: { data?: PageResult<In
   return <><QueryError error={query.error} onRetry={query.reload} /><Table<InventoryDocumentRow> rowKey="id" loading={query.loading} columns={columns} dataSource={query.data?.records ?? []} scroll={{ x: 980 }} pagination={false} locale={{ emptyText: query.loading ? <Spin /> : '暂无相关数据' }} /><div className="catalog-footer"><span>共 {query.data?.total ?? 0} 条</span><Pagination {...paginationOptions} current={page} pageSize={10} total={query.data?.total ?? 0} onChange={setPage} /></div></>
 }
 
-function LiquidationWorkspace({ tenantId, platform, departments, revision, setRevision, writable }: { tenantId?: number; platform: boolean; departments: Department[]; revision: number; setRevision: (value: (current: number) => number) => void; writable: boolean }) {
-  const { message } = App.useApp()
-  const [page, setPage] = useState(1); const [keyword, setKeyword] = useState(''); const [departmentId, setDepartmentId] = useState<number>(); const [range, setRange] = useState<[Dayjs, Dayjs]>(); const [open, setOpen] = useState(false); const [importOpen, setImportOpen] = useState(false)
-  const query = useCatalogQuery<PageResult<InventoryDocumentRow>>(`/inventory/documents?docType=LIQUIDATION&page=${page}&pageSize=10&keyword=${encodeURIComponent(keyword)}${departmentId ? `&sourceDepartmentId=${departmentId}` : ''}${range ? `&startDate=${range[0].format('YYYY-MM-DD')}&endDate=${range[1].format('YYYY-MM-DD')}` : ''}`, tenantId, revision, platform ? tenantId !== undefined : true)
-  return <><div className="inventory-sub-actions"><Space wrap><Button icon={<FileAddOutlined />} disabled={!writable} onClick={() => setImportOpen(true)}>导入库存盘点单</Button><Button type="primary" icon={<PlusOutlined />} disabled={!writable} onClick={() => setOpen(true)}>新建库存盘点单</Button><Button icon={<DownloadOutlined />} onClick={() => { if (!downloadCsv('库存盘点.csv', ['单据号', '日期', '门店', '经办人', '状态', '备注'], (query.data?.records ?? []).map(row => [row.documentNo, row.documentDate, row.sourceDepartmentName ?? row.targetDepartmentName, row.operatorName, row.status, row.remark]))) void message.info('暂无可下载数据') }}>报表下载</Button><Button icon={<ReloadOutlined />} onClick={() => setRevision(value => value + 1)}>刷新</Button></Space></div><div className="inventory-filter-row"><Select allowClear placeholder="全部门店" value={departmentId} onChange={value => { setDepartmentId(value); setPage(1) }} options={departmentOptions(departments)} /><DatePicker.RangePicker value={range} onChange={value => { if (value?.[0] && value?.[1]) setRange([value[0], value[1]]); else setRange(undefined); setPage(1) }} /><Input placeholder="单据号" allowClear onChange={event => setKeyword(event.target.value)} onPressEnter={event => { setKeyword(event.currentTarget.value.trim()); setPage(1) }} /></div><DocumentTable query={query} page={page} setPage={setPage} /><InventoryDocumentForm open={open} tenantId={tenantId} departments={departments} initialType="LIQUIDATION" onClose={() => setOpen(false)} onSaved={() => setRevision(value => value + 1)} /><InventoryCsvImport open={importOpen} tenantId={tenantId} onClose={() => setImportOpen(false)} onSaved={() => setRevision(value => value + 1)} /></>
-}
-
 function CallWorkspace({ tenantId, platform, departments, revision, setRevision, writable }: { tenantId?: number; platform: boolean; departments: Department[]; revision: number; setRevision: (value: (current: number) => number) => void; writable: boolean }) {
   const { message } = App.useApp(); const [direction, setDirection] = useState<'IN' | 'OUT'>('IN'); const [page, setPage] = useState(1); const [keyword, setKeyword] = useState(''); const [status, setStatus] = useState<InventoryDocumentStatus>(); const [range, setRange] = useState<[Dayjs, Dayjs]>(); const [open, setOpen] = useState(false); const [sourceDepartmentId, setSourceDepartmentId] = useState<number>(); const [targetDepartmentId, setTargetDepartmentId] = useState<number>()
   const docType: InventoryDocumentType = direction === 'IN' ? 'TRANSFER_IN' : 'TRANSFER_OUT'
   const query = useCatalogQuery<PageResult<InventoryDocumentRow>>(`/inventory/documents?docType=${docType}&page=${page}&pageSize=10&keyword=${encodeURIComponent(keyword)}${status ? `&status=${status}` : ''}${sourceDepartmentId ? `&sourceDepartmentId=${sourceDepartmentId}` : ''}${targetDepartmentId ? `&targetDepartmentId=${targetDepartmentId}` : ''}${range ? `&startDate=${range[0].format('YYYY-MM-DD')}&endDate=${range[1].format('YYYY-MM-DD')}` : ''}`, tenantId, revision, platform ? tenantId !== undefined : true)
   return <><Tabs activeKey={direction} items={[{ key: 'IN', label: '调拨入库管理' }, { key: 'OUT', label: '调拨出库管理' }]} onChange={next => { setDirection(next as 'IN' | 'OUT'); setPage(1) }} /><div className="inventory-sub-actions"><Space wrap><Button type="primary" icon={<PlusOutlined />} disabled={!writable} onClick={() => setOpen(true)}>{direction === 'IN' ? '新建调拨入库' : '新建调拨出库'}</Button><Button icon={<DownloadOutlined />} onClick={() => { if (!downloadCsv('调拨管理.csv', ['单据号', '调出仓', '调入仓', '日期', '经办人', '状态', '备注'], (query.data?.records ?? []).map(row => [row.documentNo, row.sourceDepartmentName, row.targetDepartmentName, row.documentDate, row.operatorName, row.status, row.remark]))) void message.info('暂无可下载数据') }}>报表下载</Button></Space></div><div className="inventory-filter-row"><Select allowClear placeholder="调入仓库" value={targetDepartmentId} onChange={value => { setTargetDepartmentId(value); setPage(1) }} options={departmentOptions(departments)} /><Select allowClear placeholder="调出仓库" value={sourceDepartmentId} onChange={value => { setSourceDepartmentId(value); setPage(1) }} options={departmentOptions(departments)} /><Select allowClear placeholder="请选择调拨状态" value={status} onChange={value => { setStatus(value); setPage(1) }} options={[{ value: 'DRAFT', label: '草稿' }, { value: 'PENDING', label: '待处理' }, { value: 'CONFIRMED', label: '已确认' }, { value: 'CANCELLED', label: '已取消' }]} /><DatePicker.RangePicker value={range} onChange={value => { if (value?.[0] && value?.[1]) setRange([value[0], value[1]]); else setRange(undefined); setPage(1) }} /><Input.Search aria-label="单据号" placeholder="请输入单据号" allowClear onSearch={value => { setKeyword(value.trim()); setPage(1) }} /></div><DocumentTable query={query} page={page} setPage={setPage} /><InventoryDocumentForm open={open} tenantId={tenantId} departments={departments} initialType={docType} onClose={() => setOpen(false)} onSaved={() => setRevision(value => value + 1)} /></>
+}
+
+function OpeningInventoryWorkspace({ tenantId, platform, departments, products, revision, onOpenMovement, writable }: { tenantId?: number; platform: boolean; departments: Department[]; products: CatalogItem[]; revision: number; onOpenMovement: (type: 'IN' | 'OUT') => void; writable: boolean }) {
+  const [page, setPage] = useState(1); const [keyword, setKeyword] = useState(''); const [brand, setBrand] = useState<string>(); const [category, setCategory] = useState<string>(); const [departmentId, setDepartmentId] = useState<number>(); const [range, setRange] = useState<[Dayjs, Dayjs]>(() => [dayjs(), dayjs()])
+  const query = useCatalogQuery<PageResult<InventoryAccountRow>>(`/inventory/account?page=${page}&pageSize=10&keyword=${encodeURIComponent(keyword)}${brand ? `&brand=${encodeURIComponent(brand)}` : ''}${category ? `&category=${encodeURIComponent(category)}` : ''}${departmentId ? `&departmentId=${departmentId}` : ''}&startDate=${range[0].format('YYYY-MM-DD')}&endDate=${range[1].format('YYYY-MM-DD')}`, tenantId, revision, platform ? tenantId !== undefined : true)
+  const brands = [...new Set(products.map(item => item.brand).filter(Boolean))] as string[]; const categories = [...new Set(products.map(item => item.category).filter(Boolean))] as string[]
+  const columns: ColumnsType<InventoryAccountRow> = [
+    { title: '产品信息', key: 'item', width: 250, render: (_: unknown, row) => <div className="catalog-cell-stack"><strong>{row.itemName}</strong><span>{row.itemCode}</span></div> },
+    { title: '所属仓库', dataIndex: 'departmentName', width: 180 },
+    { title: '单位', dataIndex: 'unit', width: 80, render: value => value || '—' },
+    { title: '产品品牌', dataIndex: 'brand', width: 120, render: value => value || '—' },
+    { title: '产品品类', dataIndex: 'category', width: 120, render: value => value || '—' },
+    { title: '本期入库数', dataIndex: 'inboundQuantity', width: 120, sorter: (left, right) => Number(left.inboundQuantity) - Number(right.inboundQuantity) },
+    { title: '本期出库数', dataIndex: 'outboundQuantity', width: 120, sorter: (left, right) => Number(left.outboundQuantity) - Number(right.outboundQuantity) },
+    { title: '期初库存', dataIndex: 'openingQuantity', width: 110, sorter: (left, right) => Number(left.openingQuantity) - Number(right.openingQuantity) },
+    { title: '期末库存', dataIndex: 'endingQuantity', width: 110, sorter: (left, right) => Number(left.endingQuantity) - Number(right.endingQuantity) },
+    { title: '本期库存变化', key: 'change', width: 130, render: (_: unknown, row) => Number(row.inboundQuantity || 0) - Number(row.outboundQuantity || 0) },
+  ]
+  function download() {
+    const rows = query.data?.records ?? []
+    if (!downloadCsv('期初期末库存查询.csv', ['产品信息', '所属仓库', '单位', '产品品牌', '产品品类', '本期入库数', '本期出库数', '期初库存', '期末库存', '本期库存变化'], rows.map(row => [row.itemName, row.departmentName, row.unit, row.brand, row.category, row.inboundQuantity, row.outboundQuantity, row.openingQuantity, row.endingQuantity, Number(row.inboundQuantity || 0) - Number(row.outboundQuantity || 0)]))) return
+  }
+  return <div className="opening-inventory-page">
+    <div className="inventory-settings-summary"><div><strong>0</strong><span>待确认收货</span></div><div><strong>0</strong><span>调拨申请处理</span></div><div><strong>0</strong><span>预警库存</span></div><div><strong>0</strong><span>保质期预警</span></div></div>
+    <div className="inventory-action-bar"><Space wrap><Button type="primary" icon={<SwapOutlined />} disabled={!writable} onClick={() => onOpenMovement('OUT')}>产品出库</Button><Button type="primary" icon={<SwapOutlined />} disabled={!writable} onClick={() => onOpenMovement('IN')}>产品入库</Button><Button icon={<DownloadOutlined />} onClick={download}>报表下载</Button></Space></div>
+    <div className="inventory-filter-row"><Select allowClear placeholder="全部门店" value={departmentId} onChange={value => { setDepartmentId(value); setPage(1) }} options={departmentOptions(departments)} /><Select allowClear placeholder="请选择品牌" value={brand} onChange={value => { setBrand(value); setPage(1) }} options={brands.map(value => ({ value, label: value }))} /><Select allowClear placeholder="请选择分类" value={category} onChange={value => { setCategory(value); setPage(1) }} options={categories.map(value => ({ value, label: value }))} /><DatePicker.RangePicker value={range} format="YYYY-MM-DD" allowClear={false} onChange={value => { if (value?.[0] && value?.[1]) { setRange([value[0], value[1]]); setPage(1) } }} /><Input.Search aria-label="搜索产品名称或编号" placeholder="请输入产品名称/编号" allowClear onSearch={value => { setKeyword(value.trim()); setPage(1) }} /></div>
+    <QueryError error={query.error} onRetry={query.reload} />
+    <Table<InventoryAccountRow> rowKey="id" loading={query.loading} columns={columns} dataSource={query.data?.records ?? []} scroll={{ x: 1320 }} pagination={false} locale={{ emptyText: query.loading ? <Spin /> : '暂无相关数据' }} />
+    <div className="catalog-footer"><span>共 {query.data?.total ?? 0} 条</span><Pagination {...paginationOptions} current={page} pageSize={10} total={query.data?.total ?? 0} onChange={setPage} /></div>
+  </div>
 }
 
 function AccountWorkspace({ tenantId, platform, departments, revision, setRevision }: { tenantId?: number; platform: boolean; departments: Department[]; revision: number; setRevision: (value: (current: number) => number) => void }) {
@@ -230,10 +252,41 @@ function InventoryRowDetail({ open, title, row, tenantId, onClose }: { open: boo
   </Modal>
 }
 
-function InventorySettingsWorkspace({ tenantId, platform, revision, setRevision, onEditWarning }: { tenantId?: number; platform: boolean; revision: number; setRevision: (value: (current: number) => number) => void; onEditWarning: (row: InventoryRow) => void }) {
-  const query = useCatalogQuery<PageResult<InventoryRow>>('/inventory?page=1&pageSize=100&keyword=', tenantId, revision, platform ? tenantId !== undefined : true)
-  const columns: ColumnsType<InventoryRow> = [{ title: '产品信息', key: 'item', width: 260, render: (_: unknown, row) => <div className="catalog-cell-stack"><strong>{row.itemName}</strong><span>{row.itemCode}</span></div> }, { title: '所属门店', dataIndex: 'departmentName', width: 180 }, { title: '产品品牌', dataIndex: 'brand', width: 120, render: value => value || '—' }, { title: '产品品类', dataIndex: 'category', width: 120, render: value => value || '—' }, { title: '库存下限', dataIndex: 'warningValue', width: 120 }, { title: '当前库存', dataIndex: 'quantity', width: 120 }, { title: '操作', key: 'actions', width: 140, render: (_: unknown, row) => <Button type="link" onClick={() => onEditWarning(row)}>修改库存下限</Button> }]
-  return <><div className="inventory-sub-actions"><Button icon={<ReloadOutlined />} onClick={() => setRevision(value => value + 1)}>刷新</Button></div><QueryError error={query.error} onRetry={query.reload} /><Table<InventoryRow> rowKey="id" loading={query.loading} columns={columns} dataSource={query.data?.records ?? []} scroll={{ x: 1050 }} pagination={false} locale={{ emptyText: query.loading ? <Spin /> : '暂无库存设置' }} /></>
+function InventorySettingsWorkspace({ tenantId, platform, revision, setRevision, onOpenMovement, writable }: { tenantId?: number; platform: boolean; revision: number; setRevision: (value: (current: number) => number) => void; onOpenMovement: (type: 'IN' | 'OUT') => void; writable: boolean }) {
+  const [form] = Form.useForm<InventorySettings>(); const { message } = App.useApp(); const enabled = platform ? tenantId !== undefined : true
+  const query = useCatalogQuery<InventorySettings>('/inventory/settings', tenantId, revision, enabled)
+  const values = Form.useWatch([], form) as Partial<InventorySettings> | undefined
+  useEffect(() => { if (query.data) form.setFieldsValue({ ...DEFAULT_INVENTORY_SETTINGS, ...query.data }) }, [form, query.data])
+  const save = async () => {
+    try {
+      const settings = await form.validateFields()
+      await catalogRequest('/inventory/settings', tenantId, { method: 'PUT', body: JSON.stringify(settings) })
+      void message.success('库存设置已保存'); setRevision(value => value + 1)
+    } catch (cause) { if (cause instanceof Error) void message.error(errorMessage(cause)) }
+  }
+  const settingRows = [
+    <div className="inventory-setting-row" key="shortage"><div><strong>库存不足无法进行开单</strong><span>开启后当产品数量小于等于 0 时，系统无法开单售卖该产品。</span></div><Form.Item name="preventOrderOnShortage" valuePropName="checked" noStyle><Switch disabled={!writable} /></Form.Item></div>,
+    <div className="inventory-setting-row" key="transfer"><div><strong>调拨自动确认收货设置</strong><span>开启后，自调拨出库时间起，发货时间大于设定天数，系统将自动确认调拨收货。</span></div><div className="inventory-setting-control"><Form.Item name="transferAutoConfirmDays" noStyle><InputNumber min={0} precision={0} disabled={!writable || !values?.transferAutoConfirmEnabled} /></Form.Item><span>天</span><Form.Item name="transferAutoConfirmEnabled" valuePropName="checked" noStyle><Switch disabled={!writable} /></Form.Item></div></div>,
+    <div className="inventory-setting-row" key="stock-alert"><div><strong>库存预警提示</strong><span>设置库存预警提示数值，库存低于该数值时提醒。</span></div><div className="inventory-setting-control"><Form.Item name="stockAlertValue" noStyle><InputNumber min={0} precision={3} disabled={!writable || !values?.stockAlertEnabled} /></Form.Item><Form.Item name="stockAlertEnabled" valuePropName="checked" noStyle><Switch disabled={!writable} /></Form.Item></div></div>,
+    <div className="inventory-setting-row" key="expiry-alert"><div><strong>产品保质期预警提示</strong><span>设置产品保质期提醒，到期前进入预警周期。</span></div><div className="inventory-setting-control"><span>到期前</span><Form.Item name="expiryAlertMonths" noStyle><Select disabled={!writable || !values?.expiryAlertEnabled} options={[{ value: 3, label: '3个月' }, { value: 6, label: '6个月' }, { value: 12, label: '12个月' }]} /></Form.Item><Form.Item name="expiryAlertEnabled" valuePropName="checked" noStyle><Switch disabled={!writable} /></Form.Item></div></div>,
+    <div className="inventory-setting-row" key="deduct"><div><strong>通过开单销售的产品是否扣除库存</strong><span>仅扣除已入库商品，未入库商品不扣除库存。</span></div><Form.Item name="salesDeductInventory" noStyle><Radio.Group disabled={!writable} options={[{ value: true, label: '扣除系统库存' }, { value: false, label: '不扣除系统库存' }]} /></Form.Item></div>,
+    <div className="inventory-setting-row" key="delete-sync"><div><strong>删除产品后库存管理同步删除</strong><span>开启后删除产品的同时，库存管理将同步删除该产品。</span></div><Form.Item name="deleteProductSyncInventory" valuePropName="checked" noStyle><Switch disabled={!writable} /></Form.Item></div>,
+  ]
+  return <div className="inventory-settings-page">
+    <div className="inventory-settings-summary">
+      <div><strong>0</strong><span>待确认收货</span></div>
+      <div><strong>0</strong><span>调拨申请处理</span></div>
+      <div><strong>0</strong><span>预警库存</span></div>
+      <div><strong>0</strong><span>保质期预警</span></div>
+    </div>
+    <div className="inventory-settings-toolbar"><Space wrap><Button type="primary" icon={<SwapOutlined />} disabled={!writable} onClick={() => onOpenMovement('OUT')}>产品出库</Button><Button type="primary" icon={<SwapOutlined />} disabled={!writable} onClick={() => onOpenMovement('IN')}>产品入库</Button><Button icon={<ReloadOutlined />} onClick={() => setRevision(value => value + 1)}>刷新</Button></Space></div>
+    <QueryError error={query.error} onRetry={query.reload} />
+    <Form form={form} layout="vertical" initialValues={DEFAULT_INVENTORY_SETTINGS}>
+      <Form.Item name="version" hidden><InputNumber /></Form.Item>
+      <div className="inventory-settings-list">{settingRows}</div>
+      <div className="inventory-settings-actions"><Button type="primary" disabled={!writable} loading={query.loading} onClick={() => void save()}>保存设置</Button></div>
+    </Form>
+  </div>
 }
 
 export default function InventoryWorkspace({ tenantId, platform }: { tenantId?: number; platform: boolean }) {
@@ -242,5 +295,5 @@ export default function InventoryWorkspace({ tenantId, platform }: { tenantId?: 
   const products = items.data?.records ?? []; const stores = departments.data ?? []
   function selectView(next: string) { setParams(currentParams => { currentParams.set('view', next); return currentParams }); }
   function openMovement(type: 'IN' | 'OUT') { setMovementType(type) }
-  return <section className="catalog-panel inventory-catalog-panel"><div className="catalog-tabs-row"><Tabs activeKey={view} items={inventoryTabs.map(item => ({ key: item.key, label: item.label }))} onChange={selectView} /><Space className="catalog-actions"><Button icon={<ReloadOutlined />} aria-label="刷新库存" onClick={() => setRevision(value => value + 1)} /></Space></div><QueryError error={items.error || departments.error} onRetry={() => { items.reload(); departments.reload() }} />{view === 'stock' && <StockWorkspace tenantId={tenantId} platform={platform} departments={stores} products={products} revision={revision} setRevision={setRevision} onOpenMovement={openMovement} onOpenDetail={(row, title) => setDetail({ row, title })} onEditWarning={setWarningRow} />}{view === 'changes' && <ChangeWorkspace tenantId={tenantId} platform={platform} departments={stores} products={products} revision={revision} setRevision={setRevision} onOpenMovement={openMovement} writable={writable} />}{view === 'batch' && <BatchWorkspace tenantId={tenantId} platform={platform} departments={stores} products={products} revision={revision} setRevision={setRevision} writable={writable} />}{view === 'liquidation' && <LiquidationWorkspace tenantId={tenantId} platform={platform} departments={stores} revision={revision} setRevision={setRevision} writable={writable} />}{view === 'call' && <CallWorkspace tenantId={tenantId} platform={platform} departments={stores} revision={revision} setRevision={setRevision} writable={writable} />}{view === 'account' && <AccountWorkspace tenantId={tenantId} platform={platform} departments={stores} revision={revision} setRevision={setRevision} />}{view === 'settings' && <InventorySettingsWorkspace tenantId={tenantId} platform={platform} revision={revision} setRevision={setRevision} onEditWarning={setWarningRow} />}<InventoryMovementForm open={movementType !== undefined} tenantId={tenantId} departments={stores} products={products} initialType={movementType ?? 'IN'} onClose={() => setMovementType(undefined)} onSaved={() => setRevision(value => value + 1)} /><InventoryWarningForm open={warningRow !== undefined} row={warningRow} tenantId={tenantId} onClose={() => setWarningRow(undefined)} onSaved={() => setRevision(value => value + 1)} /><InventoryRowDetail open={detail !== undefined} title={detail?.title ?? '库存明细'} row={detail?.row} tenantId={tenantId} onClose={() => setDetail(undefined)} /></section>
+  return <section className="catalog-panel inventory-catalog-panel"><div className="catalog-tabs-row"><Tabs activeKey={view} items={inventoryTabs.map(item => ({ key: item.key, label: item.label }))} onChange={selectView} /><Space className="catalog-actions"><Button icon={<ReloadOutlined />} aria-label="刷新库存" onClick={() => setRevision(value => value + 1)} /></Space></div><QueryError error={items.error || departments.error} onRetry={() => { items.reload(); departments.reload() }} />{view === 'stock' && <StockWorkspace tenantId={tenantId} platform={platform} departments={stores} products={products} revision={revision} setRevision={setRevision} onOpenMovement={openMovement} onOpenDetail={(row, title) => setDetail({ row, title })} onEditWarning={setWarningRow} />}{view === 'opening' && <OpeningInventoryWorkspace tenantId={tenantId} platform={platform} departments={stores} products={products} revision={revision} onOpenMovement={openMovement} writable={writable} />}{view === 'changes' && <ChangeWorkspace tenantId={tenantId} platform={platform} departments={stores} products={products} revision={revision} setRevision={setRevision} onOpenMovement={openMovement} writable={writable} />}{view === 'batch' && <BatchWorkspace tenantId={tenantId} platform={platform} departments={stores} products={products} revision={revision} setRevision={setRevision} writable={writable} />}{view === 'liquidation' && <InventoryLiquidationWorkspace tenantId={tenantId} platform={platform} departments={stores} products={products} revision={revision} setRevision={setRevision} writable={writable} />}{view === 'call' && <CallWorkspace tenantId={tenantId} platform={platform} departments={stores} revision={revision} setRevision={setRevision} writable={writable} />}{view === 'account' && <AccountWorkspace tenantId={tenantId} platform={platform} departments={stores} revision={revision} setRevision={setRevision} />}{view === 'settings' && <InventorySettingsWorkspace tenantId={tenantId} platform={platform} revision={revision} setRevision={setRevision} onOpenMovement={openMovement} writable={writable} />}<InventoryMovementForm open={movementType !== undefined} tenantId={tenantId} departments={stores} products={products} revision={revision} initialType={movementType ?? 'IN'} onClose={() => setMovementType(undefined)} onSaved={() => setRevision(value => value + 1)} /><InventoryWarningForm open={warningRow !== undefined} row={warningRow} tenantId={tenantId} onClose={() => setWarningRow(undefined)} onSaved={() => setRevision(value => value + 1)} /><InventoryRowDetail open={detail !== undefined} title={detail?.title ?? '库存明细'} row={detail?.row} tenantId={tenantId} onClose={() => setDetail(undefined)} /></section>
 }

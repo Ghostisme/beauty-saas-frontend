@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
-import { App, Button, DatePicker, Empty, Form, Input, InputNumber, Modal, Select, Space, Table, Tabs } from 'antd'
+import { App, Button, DatePicker, Descriptions, Empty, Form, Input, InputNumber, Modal, Select, Space, Table, Tabs } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import { DownloadOutlined, PlusOutlined, SearchOutlined } from '@ant-design/icons'
 import dayjs, { type Dayjs } from 'dayjs'
@@ -43,20 +43,34 @@ function MarketingPage() {
 }
 
 function BillingPage() {
-  const { message } = App.useApp()
+  const [params, setParams] = useSearchParams()
   const [keyword, setKeyword] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
+  const [modalMode, setModalMode] = useState<'billing' | 'card' | 'gift'>('billing')
+  const [selectedOrder, setSelectedOrder] = useState<BillingRow>()
   const [rows, setRows] = useState<BillingRow[]>([])
   const [form] = Form.useForm<{ customer: string; content: string; staff: string; total: number }>()
+  useEffect(() => {
+    const customerId = params.get('customerId')
+    const action = params.get('action')
+    if (!customerId) return
+    setModalMode(action === 'card' ? 'card' : action === 'gift' ? 'gift' : 'billing')
+    setModalOpen(true)
+    form.setFieldValue('customer', customerId)
+    if (action === 'card') form.setFieldValue('content', '会员卡')
+    if (action === 'gift') form.setFieldValue('content', '赠送')
+    params.delete('action'); params.delete('customerId'); setParams(params, { replace: true })
+  }, [form, params, setParams])
   const filtered = useMemo(() => keyword.trim() ? rows.filter(row => `${row.customer}${row.orderNo}`.includes(keyword.trim())) : rows, [keyword, rows])
   const columns: ColumnsType<BillingRow> = [
-    { title: '顾客信息', dataIndex: 'customer', width: 180 }, { title: '订单编号', dataIndex: 'orderNo', width: 180 }, { title: '订单时间', dataIndex: 'orderTime', width: 170 }, { title: '订单内容', dataIndex: 'content', width: 260 }, { title: '服务人员', dataIndex: 'staff', width: 160 }, { title: '订单合计', dataIndex: 'total', width: 120 }, { title: '操作', key: 'actions', width: 120, render: () => <Button type="link" onClick={() => void message.info('订单详情将在当前订单模块展示')}>详情</Button> },
+    { title: '顾客信息', dataIndex: 'customer', width: 180 }, { title: '订单编号', dataIndex: 'orderNo', width: 180 }, { title: '订单时间', dataIndex: 'orderTime', width: 170 }, { title: '订单内容', dataIndex: 'content', width: 260 }, { title: '服务人员', dataIndex: 'staff', width: 160 }, { title: '订单合计', dataIndex: 'total', width: 120 }, { title: '操作', key: 'actions', width: 120, render: (_, row) => <Button type="link" onClick={() => setSelectedOrder(row)}>详情</Button> },
   ]
   const save = async () => { const values = await form.validateFields(); setRows(current => [{ key: `${Date.now()}`, customer: values.customer, orderNo: `ORDER-${Date.now()}`, orderTime: dayjs().format('YYYY-MM-DD HH:mm'), content: values.content, staff: values.staff, total: `¥${values.total.toFixed(2)}` }, ...current]); form.resetFields(); setModalOpen(false) }
   return <section className="reference-page billing-page" aria-label="开单">
-    <div className="billing-search"><Input.Search value={keyword} onChange={event => setKeyword(event.target.value)} onSearch={setKeyword} placeholder="请输入顾客编号、姓名、手机号搜索" enterButton={<SearchOutlined />} allowClear /><Space><Button type="link" onClick={() => setModalOpen(true)}>散客开单</Button><Button type="link" onClick={() => setModalOpen(true)}>新建顾客档案</Button></Space></div>
+    <div className="billing-search"><Input.Search value={keyword} onChange={event => setKeyword(event.target.value)} onSearch={setKeyword} placeholder="请输入顾客编号、姓名、手机号搜索" enterButton={<SearchOutlined />} allowClear /><Space><Button type="link" onClick={() => { setModalMode('billing'); setModalOpen(true) }}>散客开单</Button><Button type="link" onClick={() => { setModalMode('card'); setModalOpen(true) }}>新建顾客档案</Button></Space></div>
     <div className="reference-card"><Tabs items={[{ key: 'pending', label: '待完成订单', children: <Table<BillingRow> rowKey="key" columns={columns} dataSource={filtered} pagination={false} locale={{ emptyText: <Empty description="暂无相关数据" /> }} scroll={{ x: 1100 }} /> }, { key: 'today', label: '今日订单', children: <Table<BillingRow> rowKey="key" columns={columns} dataSource={filtered.filter(row => row.orderTime.startsWith(dayjs().format('YYYY-MM-DD')))} pagination={false} locale={{ emptyText: <Empty description="暂无相关数据" /> }} scroll={{ x: 1100 }} /> }]} /></div>
-    <Modal title="散客开单" open={modalOpen} onCancel={() => setModalOpen(false)} onOk={() => void save()} okText="保存" cancelText="取消"><Form form={form} layout="vertical"><Form.Item name="customer" label="顾客信息" rules={[{ required: true, message: '请输入顾客信息' }]}><Input placeholder="请输入顾客姓名或手机号" /></Form.Item><Form.Item name="content" label="订单内容" rules={[{ required: true, message: '请输入订单内容' }]}><Input /></Form.Item><Form.Item name="staff" label="服务人员" rules={[{ required: true, message: '请输入服务人员' }]}><Input /></Form.Item><Form.Item name="total" label="订单合计" rules={[{ required: true, message: '请输入订单合计' }]}><InputNumber min={0} precision={2} style={{ width: '100%' }} /></Form.Item></Form></Modal>
+    <Modal title={modalMode === 'card' ? '开卡' : modalMode === 'gift' ? '赠送' : '散客开单'} open={modalOpen} onCancel={() => { setModalOpen(false); form.resetFields() }} onOk={() => void save()} okText="保存" cancelText="取消"><Form form={form} layout="vertical"><Form.Item name="customer" label="顾客信息" rules={[{ required: true, message: '请输入顾客信息' }]}><Input placeholder="请输入顾客姓名或手机号" /></Form.Item><Form.Item name="content" label={modalMode === 'card' ? '卡名称' : modalMode === 'gift' ? '赠送项目' : '订单内容'} rules={[{ required: true, message: modalMode === 'card' ? '请输入卡名称' : modalMode === 'gift' ? '请输入赠送项目' : '请输入订单内容' }]}><Input /></Form.Item><Form.Item name="staff" label="服务人员" rules={[{ required: true, message: '请输入服务人员' }]}><Input /></Form.Item><Form.Item name="total" label={modalMode === 'card' ? '卡金额' : modalMode === 'gift' ? '赠送金额' : '订单合计'} rules={[{ required: true, message: modalMode === 'card' ? '请输入卡金额' : modalMode === 'gift' ? '请输入赠送金额' : '请输入订单合计' }]}><InputNumber min={0} precision={2} style={{ width: '100%' }} /></Form.Item></Form></Modal>
+    <Modal title="订单详情" open={Boolean(selectedOrder)} onCancel={() => setSelectedOrder(undefined)} footer={<Button type="primary" onClick={() => setSelectedOrder(undefined)}>知道了</Button>}><Descriptions column={1} size="small" bordered>{selectedOrder && <><Descriptions.Item label="顾客信息">{selectedOrder.customer}</Descriptions.Item><Descriptions.Item label="订单编号">{selectedOrder.orderNo}</Descriptions.Item><Descriptions.Item label="订单时间">{selectedOrder.orderTime}</Descriptions.Item><Descriptions.Item label="订单内容">{selectedOrder.content}</Descriptions.Item><Descriptions.Item label="服务人员">{selectedOrder.staff}</Descriptions.Item><Descriptions.Item label="订单合计">{selectedOrder.total}</Descriptions.Item></>}</Descriptions></Modal>
   </section>
 }
 

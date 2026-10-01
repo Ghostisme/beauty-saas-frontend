@@ -10,7 +10,9 @@
     "typecheck": "tsc -b",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "verify:reference": "node scripts/reference-crawl.mjs",
+    "compare:reference": "node scripts/compare-reference-crawl.mjs"
   },
   "dependencies": {
     "@ant-design/icons": "6.3.4",

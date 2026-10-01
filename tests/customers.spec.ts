@@ -1,16 +1,13 @@
 import { expect, test } from '@playwright/test'
 import dayjs from 'dayjs'
-import { installSession, mockProfile } from './fixtures/auth'
+import { installCustomers } from './fixtures/customers'
 
-test.beforeEach(async ({ page }) => {
-  await mockProfile(page)
-  await installSession(page)
-})
+test.beforeEach(async ({ page }) => { await installCustomers(page) })
 
 test('顾客经营页签、顾客回访子页签和顾客跟进工作区', async ({ page }) => {
   await page.goto('/customers')
   await expect(page.getByRole('heading', { name: '顾客经营' })).toBeAttached()
-  await expect(page.getByRole('tab')).toHaveText(['顾客列表', '高级查询', '顾客寄存', '顾客回访', '顾客跟进', '回访提醒'])
+  await expect(page.getByRole('tab')).toHaveText(['顾客列表', '高级查询', '顾客寄存', '顾客回访', '顾客跟进'])
   if ((await page.viewportSize())!.width < 768) {
     for (const tab of await page.getByRole('tab').all()) await expect(tab).toBeInViewport()
   }
@@ -18,6 +15,11 @@ test('顾客经营页签、顾客回访子页签和顾客跟进工作区', async
   await expect(page.locator('.customer-card-filter').getByText('持卡', { exact: true })).toBeVisible()
   await expect(page.getByRole('textbox', { name: '搜索会员卡' })).toBeVisible()
   await expect(page.locator('.customer-card-filter')).toHaveCount(1)
+  await page.getByRole('textbox', { name: '搜索会员卡' }).click()
+  await expect(page.getByRole('dialog', { name: '选择会员卡' })).toBeVisible()
+  await page.getByRole('button', { name: /3980会员卡/ }).click()
+  await expect(page.getByRole('dialog', { name: '选择会员卡' })).toBeHidden()
+  await expect(page.getByRole('textbox', { name: '搜索会员卡' })).toHaveValue('3980会员卡')
   const cardFilter = page.getByRole('combobox', { name: '会员卡筛选类型' })
   await cardFilter.click()
   await cardFilter.press('ArrowDown')
@@ -51,6 +53,17 @@ test('顾客经营页签、顾客回访子页签和顾客跟进工作区', async
   await expect(page).toHaveURL(/visitTab=rules$/)
   await expect(page.getByRole('button', { name: '新增回访计划', exact: true })).toBeVisible()
   await expect(page.getByRole('status', { name: '回访计划规则暂无相关数据' })).toBeVisible()
+  await page.getByRole('tab', { name: '顾客列表', exact: true }).click()
+  await page.getByRole('button', { name: '详情', exact: true }).first().click()
+  await expect(page.getByRole('dialog', { name: '会员详情' })).toBeVisible()
+  await page.locator('.customer-detail-actions').getByRole('button', { name: /资\s*料/ }).click()
+  await expect(page.getByRole('dialog', { name: '编辑顾客档案' })).toBeVisible()
+  await page.locator('.customer-editor-footer').getByRole('button', { name: /取\s*消/ }).click()
+  await page.getByRole('button', { name: '更多', exact: true }).first().click()
+  await expect(page.getByRole('menuitem', { name: '编辑', exact: true })).toBeVisible()
+  await page.getByRole('menuitem', { name: '编辑', exact: true }).click()
+  await expect(page.getByRole('dialog', { name: '编辑顾客档案' })).toBeVisible()
+  await page.locator('.customer-editor-footer').getByRole('button', { name: /取\s*消/ }).click()
   await page.getByRole('tab', { name: '顾客跟进', exact: true }).click()
   await expect(page.getByText('未分配跟踪员工', { exact: true })).toBeVisible()
   await expect(page.getByText('总顾客数', { exact: true })).toBeVisible()
@@ -60,9 +73,9 @@ test('顾客经营页签、顾客回访子页签和顾客跟进工作区', async
   await page.getByRole('tab', { name: '顾客寄存', exact: true }).click()
   await expect(page.getByText('产品寄存余量', { exact: true })).toBeVisible()
   await expect(page.getByRole('columnheader')).toHaveText(['顾客信息', '门店信息', '操作信息', '品项信息', '备注', '操作'])
-  await page.getByRole('tab', { name: '回访提醒', exact: true }).click()
+  await page.goto('/customers?tab=reminders')
   await expect(page).toHaveURL(/\/customers\?tab=reminders$/)
-  await expect(page.getByRole('tab', { name: '回访提醒', exact: true })).toHaveAttribute('aria-selected', 'true')
+  await expect(page.getByRole('heading', { name: '顾客经营' })).toBeAttached()
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
 })
 
@@ -81,7 +94,6 @@ test('首页顾客回访提醒进入顾客页签，库存预警打开抽屉', as
   await page.goto('/')
   await page.getByRole('button', { name: '顾客回访提醒', exact: true }).click()
   await expect(page).toHaveURL(/\/customers\?tab=reminders$/)
-  await expect(page.getByRole('tab', { name: '回访提醒', exact: true })).toHaveAttribute('aria-selected', 'true')
   await expect(page.getByRole('status', { name: '顾客回访提醒暂无相关数据' })).toBeVisible()
   await expect(page.getByRole('columnheader')).toHaveText(['顾客信息', '回访场景', '计划回访时间', '回访员工', '状态', '操作'])
   await expect(page.getByRole('combobox', { name: '回访门店' })).toBeVisible()

@@ -92,12 +92,25 @@ export function TopSettingsMenu({ onDisplaySettings, onNavigate }: TopSettingsMe
   const { can, session } = useAuth()
   const platform = session?.userInfo.platformAdmin ?? false
   const visibleGroups = settingsGroups.filter(group => !group.permission || platform || can(group.permission))
-  const managementTabs: Record<string, string> = { permissions: 'roles', authorization: 'roles' }
+  // Keep each settings entry navigable. Role permissions and authorization are
+  // intentionally routed to the same canonical user-management screen so the
+  // platform does not expose two competing copies of the same content.
+  const fallbackRoutes: Record<string, string> = {
+    permissions: '/user-management?tab=roles',
+    authorization: '/user-management?tab=roles',
+    customers: '/customers',
+    advanced: '/user-management?tab=tenant',
+    schedules: '/appointments',
+    sop: '/system-logs',
+    attendance: '/staff-management?tab=users',
+    points: '/targets',
+  }
 
   function openItem(item: SettingsItem) {
-    if (item.route) {
+    const route = item.route ?? fallbackRoutes[item.key]
+    if (route) {
       if (!platform && item.permission && !can(item.permission)) { void message.warning('暂无访问权限，请联系企业管理员'); return }
-      const [path, query = ''] = item.route.split('?')
+      const [path, query = ''] = route.split('?')
       const target = new URLSearchParams(query)
       const tenantId = platform ? params.get('tenantId') : null
       if (tenantId) target.set('tenantId', tenantId)
@@ -105,11 +118,7 @@ export function TopSettingsMenu({ onDisplaySettings, onNavigate }: TopSettingsMe
       navigate(`${path}${target.size ? `?${target}` : ''}`)
       return
     }
-    const tab = managementTabs[item.key]
-    if (!tab) { void message.info(`${item.label}功能将在后续模块接入`); return }
-    if (!can(`${tab}:read`)) { void message.warning('暂无访问权限，请联系企业管理员'); return }
-    onNavigate()
-    navigate(`/user-management?tab=${tab}`)
+    void message.warning(`${item.label}暂未配置访问路径，请联系系统管理员`)
   }
 
   return (

@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import dayjs, { type Dayjs } from 'dayjs'
-import { App, Button, Checkbox, DatePicker, Descriptions, Drawer, Dropdown, Input, InputNumber, Modal, Pagination, Radio, Result, Select, Space, Spin, Table, Tabs, Upload } from 'antd'
+import { App, Button, Checkbox, DatePicker, Descriptions, Drawer, Dropdown, Image, Input, InputNumber, Modal, Pagination, Result, Select, Space, Spin, Switch, Table, Tabs, Upload } from 'antd'
 import type { MenuProps, TableColumnsType } from 'antd'
-import { DownloadOutlined, DownOutlined, PlusOutlined, QuestionCircleOutlined, SearchOutlined, UploadOutlined } from '@ant-design/icons'
+import { ArrowLeftOutlined, CheckOutlined, DeleteOutlined, DownloadOutlined, DownOutlined, EyeOutlined, PlusOutlined, QuestionCircleOutlined, SearchOutlined, UploadOutlined } from '@ant-design/icons'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { GoalEmpty } from '@/components/GoalEmpty'
 import { useAuth } from '@/context/AuthContext'
@@ -48,6 +48,7 @@ interface CustomerRecord extends EmptyRow {
   initialSpent?: number
   referralDate?: string
   remark?: string
+  storageCount?: number
 }
 
 interface VisitRule extends EmptyRow {
@@ -57,7 +58,10 @@ interface VisitRule extends EmptyRow {
 }
 
 interface StoredRecord extends EmptyRow {
+  batchId: string
   customerId: number
+  phone?: string
+  customerCode?: string
   storeId?: number | null
   storageType: 'PRODUCT' | 'PROJECT'
   quantity: number
@@ -65,11 +69,16 @@ interface StoredRecord extends EmptyRow {
   store: string
   operation: string
   item: string
+  itemCode?: string
+  itemCategory?: string
+  operatorName?: string
+  createTime?: string
   remark: string
 }
 
 interface StoredApiRecord {
   id: number
+  batchId?: string
   customerId: number
   customerName: string
   phone: string
@@ -78,9 +87,39 @@ interface StoredApiRecord {
   storeName: string
   storageType: 'PRODUCT' | 'PROJECT'
   itemName: string
+  itemId?: number | null
+  itemCode?: string
+  itemCategory?: string
   quantity: number
   remark?: string
+  operatorName?: string
+  operationType?: string
+  revoked?: number | boolean
+  revokeTime?: string
   createTime?: string
+}
+
+interface StorageBatchDetail {
+  batchId: string
+  customerId: number
+  customerName: string
+  phone: string
+  customerCode: string
+  storeId?: number | null
+  storeName: string
+  operatorName?: string
+  createTime?: string
+  remark?: string
+  items: StoredApiRecord[]
+}
+
+interface StorageDraftLine {
+  itemId: number
+  itemName: string
+  itemCode?: string
+  category?: string
+  storageType: 'PRODUCT' | 'PROJECT'
+  quantity: number
 }
 
 const tabs: { key: CustomerTab; label: string }[] = [
@@ -137,6 +176,28 @@ function downloadCustomerCsv(records: CustomerRecord[]) {
   const link = document.createElement('a')
   link.href = url
   link.download = '顾客列表.csv'
+  document.body.append(link)
+  link.click()
+  link.remove()
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000)
+  return true
+}
+
+function downloadStorageCsv(records: StoredRecord[]) {
+  if (records.length === 0) return false
+  const escape = (value: string) => {
+    const safe = /^[\s\u0000-\u001f]*[=+\-@]/.test(value) ? `'${value}` : value
+    return `"${safe.replace(/"/g, '""')}"`
+  }
+  const rows = [
+    ['顾客姓名', '手机号', '顾客编号', '寄存门店', '寄存类型', '品项名称', '品项编号', '品项分类', '余量', '操作员工', '创建时间', '备注'],
+    ...records.map(row => [row.customer, row.phone ?? '', row.customerCode ?? '', row.store, row.storageType === 'PRODUCT' ? '产品寄存' : '项目寄存', row.item, row.itemCode ?? '', row.itemCategory ?? '', `${row.quantity}`, row.operatorName ?? '', row.createTime ?? '', row.remark]),
+  ]
+  const csv = rows.map(row => row.map(escape).join(',')).join('\r\n')
+  const url = URL.createObjectURL(new Blob(['\uFEFF', csv], { type: 'text/csv;charset=utf-8' }))
+  const link = document.createElement('a')
+  link.href = url
+  link.download = '顾客寄存.csv'
   document.body.append(link)
   link.click()
   link.remove()
@@ -427,33 +488,45 @@ function AdvancedSearchPanel({ records, onDetail, onQuickAction }: { records: Cu
   </>
 }
 
-function StoredValuePanel({ records, loading, error, onRetry }: { records: StoredRecord[]; loading: boolean; error?: string; onRetry: () => void }) {
-  const [keyword, setKeyword] = useState('')
+function StoredValuePanel({ records, stores = [], loading, error, onRetry, onDetail, onRevoke }: { records: StoredRecord[]; stores?: Department[]; loading: boolean; error?: string; onRetry: () => void; onDetail: (batchId: string) => void; onRevoke: (row: StoredRecord) => void }) {
+  const [customerKeyword, setCustomerKeyword] = useState('')
+  const [itemKeyword, setItemKeyword] = useState('')
   const [type, setType] = useState<string>()
+  const [storeId, setStoreId] = useState<number>()
+  const [range, setRange] = useState<[Dayjs, Dayjs]>()
   const [page, setPage] = useState(1)
   const pageSize = 10
+  const storeSelectOptions = stores.filter(item => item.type === 'STORE' && item.status === 1).map(item => ({ value: item.id, label: item.name }))
   const visibleRecords = useMemo(() => {
-    const normalized = keyword.trim().toLowerCase()
-    return records.filter(row => (!type || row.storageType === type) && (!normalized || `${row.customer}${row.item}${row.remark}`.toLowerCase().includes(normalized)))
-  }, [keyword, records, type])
-  useEffect(() => { setPage(1) }, [keyword, type, records.length])
+    const customerText = customerKeyword.trim().toLowerCase()
+    const itemText = itemKeyword.trim().toLowerCase()
+    return records.filter(row => {
+      const created = row.createTime ? dayjs(row.createTime) : undefined
+      return (!storeId || row.storeId === storeId)
+        && (!type || row.storageType === type)
+        && (!range || !created || (created.isAfter(range[0].startOf('day').subtract(1, 'ms')) && created.isBefore(range[1].endOf('day').add(1, 'ms'))))
+        && (!customerText || `${row.customer}${row.phone ?? ''}${row.customerCode ?? ''}`.toLowerCase().includes(customerText))
+        && (!itemText || `${row.item}${row.itemCode ?? ''}${row.itemCategory ?? ''}`.toLowerCase().includes(itemText))
+    })
+  }, [customerKeyword, itemKeyword, range, records, storeId, type])
+  useEffect(() => { setPage(1) }, [customerKeyword, itemKeyword, range, storeId, type, records.length])
   const pagedRecords = visibleRecords.slice((page - 1) * pageSize, page * pageSize)
   const columns: TableColumnsType<StoredRecord> = [
-    { title: '顾客信息', key: 'customer', width: 280, render: (_, row) => <div className="customer-cell-stack"><strong>{row.customer}</strong><span>{row.store}</span></div> },
-    { title: '门店信息', dataIndex: 'store', key: 'store', width: 240 },
-    { title: '操作信息', key: 'operation', width: 250, render: (_, row) => `${row.operation} · ${row.quantity}` },
-    { title: '品项信息', dataIndex: 'item', key: 'item', width: 260 },
+    { title: '顾客信息', key: 'customer', width: 250, render: (_, row) => <div className="customer-cell-stack"><strong>{row.customer || maskPhone(row.phone ?? '')}</strong><span>{row.phone ? maskPhone(row.phone) : '—'} · 编号 {row.customerCode || '—'}</span></div> },
+    { title: '门店信息', dataIndex: 'store', key: 'store', width: 220 },
+    { title: '操作信息', key: 'operation', width: 230, render: (_, row) => <div className="customer-cell-stack"><span>{row.createTime ? dayjs(row.createTime).format('YYYY-MM-DD HH:mm:ss') : '—'}</span><span>{row.operatorName || '负责人'} · {row.operation}</span></div> },
+    { title: '品项信息', key: 'item', width: 280, render: (_, row) => <div className="customer-cell-stack"><strong>{row.item}</strong><span>{row.itemCategory || (row.storageType === 'PRODUCT' ? '产品' : '项目')} · {row.itemCode || '—'} · 余量 {row.quantity}</span></div> },
     { title: '备注', dataIndex: 'remark', key: 'remark', width: 220, render: value => value || '—' },
-    { title: '操作', key: 'actions', width: 120, render: () => null },
+    { title: '操作', key: 'actions', width: 150, render: (_, row) => <div className="customer-row-actions"><Button type="link" size="small" icon={<EyeOutlined />} onClick={() => onDetail(row.batchId)}>详情</Button><Button type="link" danger size="small" onClick={() => onRevoke(row)}>撤销</Button></div> },
   ]
   return <>
     <div className="customer-panel customer-filter-panel">
       <FilterToolbar>
-        <span className="customer-filter-label">门店：</span><Select aria-label="寄存门店" placeholder="请选择门店" allowClear options={storeOptions} />
-        <span className="customer-filter-label">日期：</span><DatePicker.RangePicker aria-label="寄存日期范围" placeholder={['开始日期', '结束日期']} inputReadOnly classNames={{ popup: { root: 'responsive-range-popup' } }} />
+        <span className="customer-filter-label">门店：</span><Select aria-label="寄存门店" placeholder="请选择门店" allowClear value={storeId} onChange={setStoreId} options={storeSelectOptions.length > 0 ? storeSelectOptions : storeOptions} />
+        <span className="customer-filter-label">日期：</span><DatePicker.RangePicker aria-label="寄存日期范围" value={range} onChange={dates => setRange(dates?.[0] && dates[1] ? [dates[0], dates[1]] : undefined)} placeholder={['开始日期', '结束日期']} inputReadOnly classNames={{ popup: { root: 'responsive-range-popup' } }} />
         <span className="customer-filter-label">类型：</span><Select aria-label="寄存类型" placeholder="请选择类型" allowClear value={type === undefined ? undefined : type === 'PRODUCT' ? 'product' : 'service'} onChange={value => setType(value === undefined ? undefined : value === 'product' ? 'PRODUCT' : 'PROJECT')} options={storageTypeOptions} />
-        <Input.Search aria-label="搜索寄存顾客" placeholder="输入顾客姓名/手机号/编号" allowClear value={keyword} onChange={event => setKeyword(event.target.value)} onSearch={setKeyword} />
-        <Input.Search aria-label="搜索寄存品项" placeholder="输入产品/项目名称、编号" allowClear onSearch={value => setKeyword(value)} />
+        <Input.Search aria-label="搜索寄存顾客" placeholder="输入顾客姓名/手机号/编号" allowClear value={customerKeyword} onChange={event => setCustomerKeyword(event.target.value)} onSearch={setCustomerKeyword} />
+        <Input.Search aria-label="搜索寄存品项" placeholder="输入产品/项目名称、编号" allowClear value={itemKeyword} onChange={event => setItemKeyword(event.target.value)} onSearch={setItemKeyword} />
       </FilterToolbar>
       <div className="stored-value-stats"><div><span>产品寄存余量</span><strong>{records.filter(row => row.storageType === 'PRODUCT').reduce((sum, row) => sum + row.quantity, 0)}</strong></div><div><span>项目寄存余量</span><strong>{records.filter(row => row.storageType === 'PROJECT').reduce((sum, row) => sum + row.quantity, 0)}</strong></div><div><span>寄存顾客人数</span><strong>{new Set(records.map(row => row.customerId)).size}</strong></div></div>
     </div>
@@ -621,12 +694,216 @@ function CustomerEditorModal({ open, initial, stores = [], onClose, onSave, onOp
   </Modal>
 }
 
-function CustomerDetailDrawer({ customer, loading, error, onRetry, onClose, onAction }: { customer?: CustomerRecord; loading?: boolean; error?: string; onRetry?: () => void; onClose: () => void; onAction?: (action: string, customer: CustomerRecord) => void }) {
-  const [assetMode, setAssetMode] = useState<'detail' | 'summary'>('detail')
-  const [assetCardType, setAssetCardType] = useState('全部')
-  const [assetCardStatus, setAssetCardStatus] = useState('生效中')
-  const [assetSort, setAssetSort] = useState('默认')
-  const [availableOnly, setAvailableOnly] = useState(false)
+interface CustomerHistoryRow extends EmptyRow {
+  orderNo: string
+  orderTime: string
+  content: string
+  staff: string
+  total: string
+}
+
+interface CustomerLogRow extends EmptyRow {
+  kind: '日志' | '回访'
+  content: string
+  operator: string
+  recordTime: string
+  imageName?: string
+  imageUrl?: string
+}
+
+interface CustomerArchiveRecord extends EmptyRow {
+  content: string
+  operator: string
+  recordTime: string
+}
+
+interface CustomerAlbumImage extends EmptyRow {
+  name: string
+  url: string
+}
+
+interface CustomerAttachment {
+  name: string
+  url: string
+}
+
+function CustomerProfileTab({ customer, onEdit }: { customer: CustomerRecord; onEdit: () => void }) {
+  const [canAccess, setCanAccess] = useState(true)
+  useEffect(() => setCanAccess(true), [customer.id])
+  const profileFields: Array<[string, string]> = [
+    ['顾客姓名', customer.name || (customer.phone ? maskPhone(customer.phone) : '—')],
+    ['手机号', customer.phone || '—'],
+    ['所属门店', customer.storeName || '当前门店'],
+    ['性别', customer.gender || '—'],
+    ['顾客来源', customer.source || '—'],
+    ['顾客生日', customer.birthday || '—'],
+    ['入会时间', customer.joinDate || '—'],
+    ['跟踪员工', customer.tracker || '/'],
+    ['专属顾问', customer.adviser || '—'],
+    ['顾客编号', customer.code || '—'],
+    ['推荐人', customer.referrer || '—'],
+    ['初始消费金额', customer.initialSpent === undefined ? '—' : `¥${customer.initialSpent.toFixed(2)}`],
+    ['顾客备注', customer.remark || '/'],
+    ['推荐日期', customer.referralDate || '—'],
+  ]
+  return <div className="customer-profile-tab">
+    <div className="customer-profile-card">
+      <div className="customer-profile-grid">
+        {profileFields.map(([label, value]) => <div key={label} className="customer-profile-field"><span>{label}：</span><strong>{value}</strong></div>)}
+      </div>
+      <div className="customer-profile-custom">自定义属性：</div>
+      <Button className="customer-profile-edit" onClick={onEdit}>编辑</Button>
+    </div>
+    <div className="customer-profile-access"><span>顾客是否可访问门店顾客端</span><Switch checked={canAccess} onChange={setCanAccess} size="small" /></div>
+  </div>
+}
+
+function CustomerRecordsTab() {
+  const [activeTab, setActiveTab] = useState('consumption')
+  const [dateRange, setDateRange] = useState<[Dayjs, Dayjs]>()
+  const [store, setStore] = useState<string>()
+  const [kind, setKind] = useState<string>()
+  const tabs = [{ key: 'consumption', label: '消费记录' }, { key: 'arrival', label: '到店记录' }, { key: 'appointment', label: '预约记录' }, { key: 'storage', label: '寄存记录' }, { key: 'edit', label: '修改记录' }, { key: 'skin', label: '测肌记录' }]
+  const columns: TableColumnsType<CustomerHistoryRow> = [
+    { title: '订单编号', dataIndex: 'orderNo', key: 'orderNo', width: 150 },
+    { title: '订单时间', dataIndex: 'orderTime', key: 'orderTime', width: 170 },
+    { title: '订单内容', dataIndex: 'content', key: 'content', width: 240 },
+    { title: '服务人员', dataIndex: 'staff', key: 'staff', width: 150 },
+    { title: '订单合计', dataIndex: 'total', key: 'total', width: 130 },
+    { title: '操作', key: 'actions', width: 100, render: () => <Button type="link" size="small">详情</Button> },
+  ]
+  return <div className="customer-records-tab">
+    <div className="customer-inner-tabs">{tabs.map(tab => <button type="button" key={tab.key} className={activeTab === tab.key ? 'is-active' : ''} onClick={() => setActiveTab(tab.key)}>{tab.label}</button>)}</div>
+    <div className="customer-records-filters"><DatePicker.RangePicker aria-label="顾客记录日期范围" value={dateRange} onChange={dates => setDateRange(dates?.[0] && dates[1] ? [dates[0], dates[1]] : undefined)} placeholder={['开始日期', '结束日期']} inputReadOnly /><Select aria-label="顾客记录门店" value={store} onChange={setStore} placeholder="请选择门店" allowClear options={[{ value: 'current', label: '当前门店' }]} /><Select aria-label="顾客记录类型" value={kind} onChange={setKind} placeholder="请选择类型" allowClear options={[{ value: '消费', label: '消费' }, { value: '项目', label: '项目' }, { value: '产品', label: '产品' }]} /></div>
+    <EmptyTable<CustomerHistoryRow> ariaLabel={`${tabs.find(item => item.key === activeTab)?.label ?? '顾客'}列表`} columns={columns} rows={[]} width={980} />
+  </div>
+}
+
+function CustomerDataTab({ customer }: { customer: CustomerRecord }) {
+  const { message } = App.useApp()
+  const [wallet, setWallet] = useState(customer.balance ?? 0)
+  const [walletModalOpen, setWalletModalOpen] = useState(false)
+  const [walletInput, setWalletInput] = useState(customer.balance ?? 0)
+  useEffect(() => { setWallet(customer.balance ?? 0); setWalletInput(customer.balance ?? 0) }, [customer.id, customer.balance])
+  const money = (value: number) => `¥${value.toFixed(2)}`
+  const renderStat = (label: string, value: ReactNode, key: string) => <div key={key} className="customer-data-stat"><span>{label}</span><strong>{value}</strong></div>
+  return <div className="customer-data-tab">
+    <section className="customer-data-card"><h3>客户资产</h3><div className="customer-data-grid">{renderStat('会员钱包', <>{money(wallet)} <button type="button" className="customer-data-link" onClick={() => { setWalletInput(wallet); setWalletModalOpen(true) }}>修改</button></>, 'wallet')}{renderStat('剩余消费储值', money(0), 'stored-value')}{renderStat('积分', '0', 'points')}{renderStat('欠款金额', money(0), 'debt')}{renderStat('名下卡/券数', `${customer.cardCount}/0`, 'cards')}</div></section>
+    <section className="customer-data-card"><h3>客户贡献</h3><div className="customer-data-grid">{renderStat('累计消费金额', money(customer.spent ?? 0), 'spent')}{renderStat('累计耗卡金额', money(0), 'card-spent')}{renderStat('转介绍人数', '0', 'referrals')}{renderStat('当年消费排名', 'No.', 'year-rank')}{renderStat('累计消费排名', 'No.', 'all-rank')}</div></section>
+    <section className="customer-data-card"><h3>客户粘性</h3><div className="customer-data-grid customer-data-grid-3">{renderStat('总到店次数', `${customer.visitCount ?? 0}`, 'visits')}{renderStat('平均到店频率', '天', 'frequency')}{renderStat('生命周期归类', '暂无', 'lifecycle')}</div></section>
+    <section className="customer-data-card"><h3>合伙人收益</h3><div className="customer-data-grid customer-data-grid-4">{renderStat('店内消费可用金额', money(0), 'available')}{renderStat('可提现收益', money(0), 'withdraw')}{renderStat('直接推荐人', '0人', 'direct')}{renderStat('间接推荐人', '0人', 'indirect')}</div></section>
+    <Modal title="修改会员钱包" open={walletModalOpen} onCancel={() => setWalletModalOpen(false)} onOk={() => { setWallet(Number(walletInput) || 0); setWalletModalOpen(false); void message.success('会员钱包已更新') }} okText="保存" cancelText="取消" destroyOnHidden><InputNumber aria-label="会员钱包金额" value={walletInput} onChange={value => setWalletInput(value ?? 0)} min={0} precision={2} style={{ width: '100%' }} /></Modal>
+  </div>
+}
+
+function CustomerLogsTab() {
+  const { message } = App.useApp()
+  const [activeTab, setActiveTab] = useState<'all' | 'followup' | 'log'>('all')
+  const [dateRange, setDateRange] = useState<[Dayjs, Dayjs]>()
+  const [rows, setRows] = useState<CustomerLogRow[]>([])
+  const [logModalOpen, setLogModalOpen] = useState(false)
+  const [followupModalOpen, setFollowupModalOpen] = useState(false)
+  const [logContent, setLogContent] = useState('')
+  const [logTime, setLogTime] = useState<Dayjs>(dayjs())
+  const [logImage, setLogImage] = useState<CustomerAttachment>()
+  const [followupEmployee, setFollowupEmployee] = useState('')
+  const [followupContent, setFollowupContent] = useState('')
+  const [followupTime, setFollowupTime] = useState<Dayjs>(dayjs())
+  const [followupImage, setFollowupImage] = useState<CustomerAttachment>()
+  const tabs = [{ key: 'all', label: '全部' }, { key: 'followup', label: '回访/客勤' }, { key: 'log', label: '服务日志' }] as const
+  const readImage = (file: File, setImage: (value: CustomerAttachment | undefined) => void) => {
+    if (!['image/png', 'image/jpeg', 'image/jpg'].includes(file.type)) { void message.error('仅支持 png、jpg、jpeg 格式的图片'); return }
+    if (file.size > 10 * 1024 * 1024) { void message.error('图片不能超过10M'); return }
+    const reader = new FileReader()
+    reader.onload = () => setImage({ name: file.name, url: String(reader.result ?? '') })
+    reader.readAsDataURL(file)
+  }
+  const resetLogForm = () => { setLogContent(''); setLogTime(dayjs()); setLogImage(undefined) }
+  const resetFollowupForm = () => { setFollowupEmployee(''); setFollowupContent(''); setFollowupTime(dayjs()); setFollowupImage(undefined) }
+  const submitLog = () => {
+    if (!logContent.trim()) { void message.error('请输入日志内容'); return }
+    setRows(current => [{ id: Date.now(), kind: '日志', content: logContent.trim(), operator: '负责人', recordTime: logTime.format('YYYY-MM-DD HH:mm'), imageName: logImage?.name, imageUrl: logImage?.url }, ...current])
+    setLogModalOpen(false); resetLogForm(); void message.success('顾客日志已添加')
+  }
+  const submitFollowup = () => {
+    if (!followupEmployee.trim()) { void message.error('请输入回访员工'); return }
+    if (!followupContent.trim()) { void message.error('请输入回访备注'); return }
+    setRows(current => [{ id: Date.now(), kind: '回访', content: followupContent.trim(), operator: followupEmployee.trim(), recordTime: followupTime.format('YYYY-MM-DD HH:mm'), imageName: followupImage?.name, imageUrl: followupImage?.url }, ...current])
+    setFollowupModalOpen(false); resetFollowupForm(); void message.success('回访记录已添加')
+  }
+  const visibleRows = rows.filter(row => {
+    const inType = activeTab === 'all' || (activeTab === 'log' ? row.kind === '日志' : row.kind === '回访')
+    const current = dayjs(row.recordTime)
+    const inRange = !dateRange || (current.isAfter(dateRange[0].startOf('day').subtract(1, 'ms')) && current.isBefore(dateRange[1].endOf('day').add(1, 'ms')))
+    return inType && inRange
+  })
+  const columns: TableColumnsType<CustomerLogRow> = [{ title: '类型', dataIndex: 'kind', key: 'kind', width: 100 }, { title: '内容', dataIndex: 'content', key: 'content', ellipsis: true }, { title: '记录人', dataIndex: 'operator', key: 'operator', width: 140 }, { title: '记录时间', dataIndex: 'recordTime', key: 'recordTime', width: 170 }, { title: '图片', key: 'image', width: 120, render: (_, row) => row.imageUrl ? <Image width={36} height={36} src={row.imageUrl} alt={row.imageName ?? '附件'} /> : '—' }]
+  const uploadControl = (attachment: CustomerAttachment | undefined, setAttachment: (value: CustomerAttachment | undefined) => void) => <Upload accept=".png,.jpg,.jpeg" showUploadList={false} beforeUpload={file => { readImage(file as File, setAttachment); return false }}><button type="button" className="customer-log-upload"><UploadOutlined /><span>{attachment?.name ?? '上传图片'}</span></button></Upload>
+  return <div className="customer-logs-tab">
+    <div className="customer-log-toolbar"><div className="customer-inner-tabs">{tabs.map(tab => <button type="button" key={tab.key} className={activeTab === tab.key ? 'is-active' : ''} onClick={() => setActiveTab(tab.key)}>{tab.label}</button>)}</div><Space wrap><Button type="primary" onClick={() => setLogModalOpen(true)}>添加顾客日志</Button><Button type="primary" onClick={() => setFollowupModalOpen(true)}>添加回访记录</Button><DatePicker.RangePicker aria-label="服务日志日期范围" value={dateRange} onChange={dates => setDateRange(dates?.[0] && dates[1] ? [dates[0], dates[1]] : undefined)} placeholder={['开始日期', '结束日期']} inputReadOnly /></Space></div>
+    {visibleRows.length === 0 ? <div className="customer-detail-empty customer-log-empty"><GoalEmpty /><span>暂无相关数据</span></div> : <Table<CustomerLogRow> rowKey="id" pagination={false} dataSource={visibleRows} columns={columns} />}
+    <Modal title="添加顾客日志" open={logModalOpen} onCancel={() => { setLogModalOpen(false); resetLogForm() }} onOk={submitLog} okText="确定" cancelText="取消" destroyOnHidden><div className="customer-log-form"><label>添加人员<Input value="负责人" disabled /></label><label className="required">日志内容<Input.TextArea value={logContent} onChange={event => setLogContent(event.target.value)} placeholder="输入日志" maxLength={1000} showCount rows={5} /></label><label>记录时间<DatePicker showTime value={logTime} onChange={value => setLogTime(value ?? dayjs())} style={{ width: '100%' }} /></label><label>上传图片<small>上传png、jpg、jpeg格式的图片，每张不超过10M</small>{uploadControl(logImage, setLogImage)}</label></div></Modal>
+    <Modal title="顾客回访" open={followupModalOpen} onCancel={() => { setFollowupModalOpen(false); resetFollowupForm() }} onOk={submitFollowup} okText="确定" cancelText="取消" destroyOnHidden><div className="customer-log-form"><label className="required">回访员工<Input value={followupEmployee} onChange={event => setFollowupEmployee(event.target.value)} placeholder="请输入回访员工" /></label><label className="required">回访备注<div className="customer-log-template-links"><button type="button" onClick={() => setFollowupContent('')}>编辑</button><button type="button" onClick={() => setFollowupContent(current => current || '您好，感谢您的支持，欢迎再次到店。')}>添加话术模板</button></div><Input.TextArea value={followupContent} onChange={event => setFollowupContent(event.target.value)} placeholder="请输入备注" maxLength={500} showCount rows={5} /></label><label>记录时间<DatePicker showTime value={followupTime} onChange={value => setFollowupTime(value ?? dayjs())} style={{ width: '100%' }} /></label><label>上传图片<small>上传png、jpg、jpeg格式的图片，每张不超过10M</small>{uploadControl(followupImage, setFollowupImage)}</label></div></Modal>
+  </div>
+}
+
+function CustomerArchivesTab() {
+  const { message } = App.useApp()
+  const [mode, setMode] = useState<'record' | 'archive'>('record')
+  const [recordModalOpen, setRecordModalOpen] = useState(false)
+  const [fillModalOpen, setFillModalOpen] = useState(false)
+  const [recordContent, setRecordContent] = useState('')
+  const [recordTime, setRecordTime] = useState<Dayjs>(dayjs())
+  const [recordRows, setRecordRows] = useState<CustomerArchiveRecord[]>([])
+  const [filledTemplates, setFilledTemplates] = useState<number[]>([])
+  const [selectedTemplate, setSelectedTemplate] = useState<number>()
+  const [dateRange, setDateRange] = useState<[Dayjs, Dayjs]>()
+  const [archiveType, setArchiveType] = useState<string>()
+  const templates = [{ id: 1, name: '咨询单', type: '公开档案' }, { id: 2, name: '16肌肤分型问诊表', type: '公开档案' }]
+  const modeToggle = <div className="customer-archive-toggle"><button type="button" className={mode === 'record' ? 'is-active' : ''} onClick={() => setMode('record')}>顾客记录</button><button type="button" className={mode === 'archive' ? 'is-active' : ''} onClick={() => setMode('archive')}>顾客档案</button></div>
+  const addRecord = () => {
+    if (!recordContent.trim()) { void message.error('请输入顾客记录'); return }
+    setRecordRows(rows => [{ id: Date.now(), content: recordContent.trim(), operator: '负责人', recordTime: recordTime.format('YYYY-MM-DD HH:mm') }, ...rows])
+    setRecordModalOpen(false); setRecordContent(''); setRecordTime(dayjs()); void message.success('顾客记录已添加')
+  }
+  const visibleTemplates = templates.filter(template => !archiveType || template.type === archiveType)
+  return <div className="customer-archives-tab">
+    {mode === 'record' ? <>
+      <div className="customer-archive-toolbar"><Select aria-label="顾客档案模板" placeholder="请选择模板" allowClear options={templates.map(item => ({ value: item.id, label: item.name }))} /><div className="customer-archive-toolbar-right">{modeToggle}<Button type="primary" onClick={() => setRecordModalOpen(true)}>添加顾客记录</Button></div></div>
+      {recordRows.length === 0 ? <div className="customer-detail-empty"><GoalEmpty /><span>暂无相关数据</span></div> : <Table<CustomerArchiveRecord> rowKey="id" pagination={false} dataSource={recordRows} columns={[{ title: '记录内容', dataIndex: 'content', key: 'content' }, { title: '记录人', dataIndex: 'operator', key: 'operator', width: 150 }, { title: '记录时间', dataIndex: 'recordTime', key: 'recordTime', width: 180 }]} />}
+    </> : <>
+      <div className="customer-archive-toolbar"><Space><DatePicker.RangePicker aria-label="顾客档案日期范围" value={dateRange} onChange={dates => setDateRange(dates?.[0] && dates[1] ? [dates[0], dates[1]] : undefined)} placeholder={['开始日期', '结束日期']} inputReadOnly /><Select aria-label="顾客档案类型" value={archiveType} onChange={setArchiveType} placeholder="请选择类型" allowClear options={[{ value: '公开档案', label: '公开档案' }]} /></Space><div className="customer-archive-toolbar-right">{modeToggle}</div></div>
+      <div className="customer-archive-table"><div className="customer-archive-table-head"><span>档案名称</span><span>类型</span><span>是否填写</span><span>操作</span></div>{visibleTemplates.map(template => <div className="customer-archive-table-row" key={template.id}><span>{template.name}</span><span>{template.type}</span><span>{filledTemplates.includes(template.id) ? '已填写' : '未填写'}</span><span><Button type="link" size="small" onClick={() => { setSelectedTemplate(template.id); setFillModalOpen(true) }}>{filledTemplates.includes(template.id) ? '查看' : '填写'}</Button></span></div>)}</div>
+    </>}
+    <Modal title="添加顾客记录" open={recordModalOpen} onCancel={() => setRecordModalOpen(false)} onOk={addRecord} okText="确定" cancelText="取消" destroyOnHidden><div className="customer-log-form"><label className="required">记录内容<Input.TextArea value={recordContent} onChange={event => setRecordContent(event.target.value)} maxLength={1000} showCount rows={5} placeholder="请输入顾客记录" /></label><label>记录时间<DatePicker showTime value={recordTime} onChange={value => setRecordTime(value ?? dayjs())} style={{ width: '100%' }} /></label></div></Modal>
+    <Modal title="选择填写方式" open={fillModalOpen} onCancel={() => setFillModalOpen(false)} footer={null} width={520} destroyOnHidden><div className="customer-archive-fill-options"><button type="button" onClick={() => { if (selectedTemplate) setFilledTemplates(current => current.includes(selectedTemplate) ? current : [...current, selectedTemplate]); setFillModalOpen(false); void message.success('已进入门店填写') }}><strong>✎</strong><b>门店自行填写</b><span>由门店工作人员手动填写顾客信息</span></button><button type="button" onClick={() => { setFillModalOpen(false); void message.success('已生成邀请二维码') }}><strong>▦</strong><b>邀请顾客填写</b><span>生成二维码，顾客扫码自行填写</span></button></div></Modal>
+  </div>
+}
+
+function CustomerPartnerTab() {
+  return <div className="customer-partner-tab">商户是未完成合伙人基础配置 请去营销-合伙人-合伙人设置-规则设置配置</div>
+}
+
+function CustomerAlbumTab() {
+  const { message } = App.useApp()
+  const [images, setImages] = useState<CustomerAlbumImage[]>([])
+  const readImage = (file: File) => {
+    if (!['image/png', 'image/jpeg', 'image/jpg'].includes(file.type)) { void message.error('仅支持 png、jpg、jpeg 格式的图片'); return }
+    if (file.size > 10 * 1024 * 1024) { void message.error('图片不能超过10M'); return }
+    const reader = new FileReader()
+    reader.onload = () => setImages(current => [...current, { id: `${Date.now()}-${file.name}`, name: file.name, url: String(reader.result ?? '') }])
+    reader.readAsDataURL(file)
+  }
+  const uploadButton = <Upload accept=".png,.jpg,.jpeg" multiple showUploadList={false} beforeUpload={file => { readImage(file as File); return false }}><Button type="primary">上传顾客相册</Button></Upload>
+  return <div className="customer-album-tab">{images.length === 0 ? <div className="customer-detail-empty"><GoalEmpty /><span>暂无相关数据</span>{uploadButton}</div> : <><div className="customer-album-toolbar">{uploadButton}</div><Image.PreviewGroup><div className="customer-album-grid">{images.map(image => <div className="customer-album-item" key={image.id}><Image src={image.url} alt={image.name} /><span>{image.name}</span></div>)}</div></Image.PreviewGroup></>}</div>
+}
+
+function CustomerDetailDrawer({ customer, loading, error, onRetry, onClose, onAction, storageRows = [], storageLoading = false, storageError, onStorageRetry, onClaim }: { customer?: CustomerRecord; loading?: boolean; error?: string; onRetry?: () => void; onClose: () => void; onAction?: (action: string, customer: CustomerRecord) => void; storageRows?: StoredApiRecord[]; storageLoading?: boolean; storageError?: string; onStorageRetry?: () => void; onClaim?: (row: StoredApiRecord) => void }) {
+  const [storageKeyword, setStorageKeyword] = useState('')
+  const visibleStorageRows = useMemo(() => {
+    const keyword = storageKeyword.trim().toLowerCase()
+    return storageRows.filter(row => !keyword || `${row.itemName}${row.itemCode ?? ''}${row.itemCategory ?? ''}`.toLowerCase().includes(keyword))
+  }, [storageKeyword, storageRows])
   const assetContent = customer && <div className="customer-asset-pane">
     <div className="customer-asset-summary">
       {[
@@ -636,23 +913,27 @@ function CustomerDetailDrawer({ customer, loading, error, onRetry, onClose, onAc
         ['会员积分', '0'],
         ['钱包', '0'],
         ['原价消费金', '0'],
-        ['顾客寄存', '0项'],
-      ].map(([label, value]) => <div key={label} className="customer-asset-stat"><span>{label}</span><strong>{value}</strong></div>)}
+        ['顾客寄存', `${customer.storageCount ?? storageRows.length}项`],
+      ].map(([label, value]) => <div key={label} className={`customer-asset-stat${label === '顾客寄存' ? ' is-highlighted' : ''}`}><span>{label}</span><strong>{value}</strong></div>)}
     </div>
-    <div className="customer-asset-filters">
-      <label>卡类型：<Select size="small" value={assetCardType} onChange={setAssetCardType} options={['全部', '储值卡', '次卡', '期限卡'].map(value => ({ value, label: value }))} /></label>
-      <label>卡状态：<Select size="small" value={assetCardStatus} onChange={setAssetCardStatus} options={['生效中', '已失效', '全部'].map(value => ({ value, label: value }))} /></label>
-      <label>卡排序：<Select size="small" value={assetSort} onChange={setAssetSort} options={['默认', '余额从高到低', '到期时间'].map(value => ({ value, label: value }))} /></label>
-    </div>
-    <div className="customer-asset-mode-row"><Checkbox checked={availableOnly} onChange={event => setAvailableOnly(event.target.checked)}>仅展示卡内可用资产</Checkbox><Radio.Group value={assetMode} onChange={event => setAssetMode(event.target.value)} optionType="button" buttonStyle="solid" options={[{ value: 'detail', label: '详细模式' }, { value: 'summary', label: '简要模式' }]} /></div>
-    <div className="customer-detail-empty"><GoalEmpty /><span>{availableOnly ? '暂无可用资产' : assetMode === 'summary' ? '暂无资产摘要' : '暂无相关数据'}</span></div>
+    <div className="customer-asset-filters customer-storage-filters"><span>顾客寄存品项</span><Input.Search aria-label="搜索顾客寄存品项" placeholder="输入品项名称、编号" allowClear value={storageKeyword} onChange={event => setStorageKeyword(event.target.value)} onSearch={setStorageKeyword} /></div>
+    {storageLoading && <div className="customer-detail-empty"><Spin /></div>}
+    {!storageLoading && storageError && <QueryError error={storageError} onRetry={onStorageRetry ?? (() => undefined)} />}
+    {!storageLoading && !storageError && visibleStorageRows.length === 0 && <div className="customer-detail-empty"><GoalEmpty /><span>暂无顾客寄存</span></div>}
+    {!storageLoading && !storageError && visibleStorageRows.length > 0 && <Table<StoredApiRecord> rowKey="id" pagination={false} scroll={{ x: 820 }} dataSource={visibleStorageRows} columns={[
+      { title: '寄存门店', key: 'store', width: 180, render: (_, row) => row.storeName || '当前门店' },
+      { title: '品项分类', key: 'category', width: 130, render: (_, row) => row.itemCategory || (row.storageType === 'PRODUCT' ? '产品' : '项目') },
+      { title: '品项编号', dataIndex: 'itemCode', key: 'code', width: 130, render: value => value || '—' },
+      { title: '品项信息', key: 'item', width: 240, render: (_, row) => <div className="customer-cell-stack"><strong>{row.itemName}</strong><span>{row.storageType === 'PRODUCT' ? '产品寄存' : '项目寄存'}</span></div> },
+      { title: '余量', dataIndex: 'quantity', key: 'quantity', width: 100 },
+      { title: '领取', key: 'claim', width: 100, render: (_, row) => <Button type="link" size="small" disabled={Number(row.quantity) <= 0} onClick={() => onClaim?.(row)}>领取</Button> },
+    ]} />}
   </div>
-  const profileContent = customer && <Descriptions bordered size="small" column={2}><Descriptions.Item label="顾客姓名">{customer.name || '—'}</Descriptions.Item><Descriptions.Item label="手机号">{customer.phone || '—'}</Descriptions.Item><Descriptions.Item label="顾客来源">{customer.source || '—'}</Descriptions.Item><Descriptions.Item label="所属门店">{customer.storeName || '当前门店'}</Descriptions.Item><Descriptions.Item label="备注" span={2}>{customer.remark || '—'}</Descriptions.Item></Descriptions>
   const profile = customer && <>
     <div className="customer-detail-profile-head"><div className="customer-detail-avatar">{(customer.name || customer.phone || '顾').slice(0, 1)}</div><div><strong>{customer.phone ? maskPhone(customer.phone) : customer.name}</strong><span>{customer.phone || '—'}</span></div></div>
     <div className="customer-detail-level"><strong>{customer.level || '无等级'}</strong><span>设置&nbsp;&nbsp;|&nbsp;&nbsp;进度</span></div>
     <div className="customer-detail-fields">
-      {([['电话', customer.phone], ['生日', customer.birthday], ['会员编号', customer.code], ['所属门店', customer.storeName || '当前门店'], ['顾客来源', customer.source || '—'], ['推荐人', '—'], ['专属顾问', customer.adviser || '—'], ['跟踪员工', customer.tracker || '—']] as const).map(([label, value]) => <div key={label}><span>{label}：</span><strong>{value || '—'}</strong></div>)}
+      {([['电话', customer.phone], ['生日', customer.birthday], ['会员编号', customer.code], ['所属门店', customer.storeName || '当前门店'], ['顾客来源', customer.source || '—'], ['推荐人', customer.referrer || '—'], ['专属顾问', customer.adviser || '—'], ['跟踪员工', customer.tracker || '—']] as const).map(([label, value]) => <div key={label}><span>{label}：</span><strong>{value || '—'}</strong></div>)}
     </div>
     <div className="customer-detail-note"><strong>备注信息</strong><span>顾客禁忌</span><p>{customer.remark || '暂无'}</p></div>
     <div className="customer-detail-note"><strong>顾客标签</strong><button type="button" aria-label="添加顾客标签">＋</button></div>
@@ -660,18 +941,19 @@ function CustomerDetailDrawer({ customer, loading, error, onRetry, onClose, onAc
     <div className="customer-detail-actions">{['开单', '开卡', '预约', '赠送', '回访', '资料'].map(label => <Button key={label} size="small" onClick={() => onAction?.(label, customer)}>{label}</Button>)}</div>
     <div className="customer-detail-wechat">微信：已绑定</div>
   </>
-  return <Drawer title="会员详情" className="customer-detail-drawer" placement="right" size="min(1296px, calc(100vw - 144px))" open={Boolean(customer)} onClose={onClose} destroyOnHidden>
+  const headerActions = customer && <Space size={4} wrap className="customer-detail-header-actions">{['无等级', '设置', '进度', '开单', '开卡', '预约', '赠送', '回访', '资料'].map(label => <Button key={label} type={label === '无等级' ? 'text' : 'link'} size="small" onClick={() => onAction?.(label, customer)}>{label}</Button>)}</Space>
+  return <Drawer title="会员详情" extra={headerActions} className="customer-detail-drawer" placement="right" size="min(1296px, calc(100vw - 144px))" open={Boolean(customer)} onClose={onClose} destroyOnHidden>
     {loading && <Spin />}
     {error && <QueryError error={error} onRetry={onRetry ?? (() => undefined)} />}
     {!loading && !error && customer && <div className="customer-detail-layout"><aside className="customer-detail-sidebar">{profile}</aside><section className="customer-detail-main"><Tabs items={[
       { key: 'assets', label: '顾客资产', children: assetContent },
-      { key: 'profile', label: '会员资料', children: profileContent },
-      { key: 'records', label: '顾客记录', children: <div className="customer-detail-empty"><GoalEmpty /><span>暂无顾客记录</span></div> },
-      { key: 'data', label: '客户数据', children: <div className="customer-detail-empty"><GoalEmpty /><span>暂无客户数据</span></div> },
-      { key: 'logs', label: '服务日志/回访', children: <div className="customer-detail-empty"><GoalEmpty /><span>暂无服务日志/回访</span></div> },
-      { key: 'archive', label: '顾客档案', children: profileContent },
-      { key: 'partner', label: '合伙人信息', children: <div className="customer-detail-empty"><GoalEmpty /><span>暂无合伙人信息</span></div> },
-      { key: 'album', label: '顾客相册', children: <div className="customer-detail-empty"><GoalEmpty /><span>暂无顾客相册</span></div> },
+      { key: 'profile', label: '会员资料', children: <CustomerProfileTab customer={customer} onEdit={() => onAction?.('资料', customer)} /> },
+      { key: 'records', label: '顾客记录', children: <CustomerRecordsTab /> },
+      { key: 'data', label: '客户数据', children: <CustomerDataTab customer={customer} /> },
+      { key: 'logs', label: '服务日志/回访', children: <CustomerLogsTab /> },
+      { key: 'archive', label: '顾客档案', children: <CustomerArchivesTab /> },
+      { key: 'partner', label: '合伙人信息', children: <CustomerPartnerTab /> },
+      { key: 'album', label: '顾客相册', children: <CustomerAlbumTab /> },
     ]} /></section></div>}
   </Drawer>
 }
@@ -684,20 +966,67 @@ function CustomerAssignmentModal({ customers, target, onClose, onSave }: { custo
   </Modal>
 }
 
-function StorageModal({ open, customers, onClose, onSave }: { open: boolean; customers: CustomerRecord[]; onClose: () => void; onSave: (record: { customerId: number; storeId?: number | null; storageType: 'PRODUCT' | 'PROJECT'; itemName: string; quantity: number; remark?: string }) => Promise<void> | void }) {
+function StorageBatchDetailModal({ open, detail, loading, error, onRetry, onClose }: { open: boolean; detail?: StorageBatchDetail; loading?: boolean; error?: string; onRetry?: () => void; onClose: () => void }) {
+  return <Modal title="寄存详情" open={open} onCancel={onClose} footer={<Button onClick={onClose}>关闭</Button>} width={900} destroyOnHidden>
+    {loading && <div className="customer-detail-empty"><Spin /></div>}
+     {error && <QueryError error={error} onRetry={onRetry ?? (() => undefined)} />}
+    {!loading && !error && detail && <div className="storage-detail-modal">
+      <Descriptions size="small" column={3} bordered><Descriptions.Item label="顾客">{detail.customerName}（{detail.phone ? maskPhone(detail.phone) : '—'}）</Descriptions.Item><Descriptions.Item label="门店">{detail.storeName}</Descriptions.Item><Descriptions.Item label="操作员工">{detail.operatorName || '负责人'}</Descriptions.Item><Descriptions.Item label="创建时间">{detail.createTime ? dayjs(detail.createTime).format('YYYY-MM-DD HH:mm:ss') : '—'}</Descriptions.Item><Descriptions.Item label="备注" span={2}>{detail.remark || '—'}</Descriptions.Item></Descriptions>
+      <Table<StoredApiRecord> rowKey="id" pagination={false} dataSource={detail.items} columns={[{ title: '品项名称', key: 'name', render: (_, row) => row.itemName }, { title: '分类', key: 'category', render: (_, row) => row.itemCategory || (row.storageType === 'PRODUCT' ? '产品' : '项目') }, { title: '编号', dataIndex: 'itemCode', key: 'code', render: value => value || '—' }, { title: '数量', dataIndex: 'quantity', key: 'quantity' }, { title: '状态', key: 'status', render: (_, row) => row.revoked ? '已撤销' : row.operationType === 'CLAIM' ? '部分领取' : '有效' }]} />
+    </div>}
+  </Modal>
+}
+
+function StorageModal({ open, customers, stores = [], products = [], projects = [], onClose, onSave }: { open: boolean; customers: CustomerRecord[]; stores?: Department[]; products?: CatalogItem[]; projects?: CatalogItem[]; onClose: () => void; onSave: (record: { customerId: number; storeId?: number | null; remark?: string; items: StorageDraftLine[] }) => Promise<void> | void }) {
+  const { message } = App.useApp()
   const [customerId, setCustomerId] = useState<number>()
-  const [type, setType] = useState<string>()
-  const [item, setItem] = useState('')
-  const [quantity, setQuantity] = useState(1)
+  const [storeId, setStoreId] = useState<number>()
+  const [operator, setOperator] = useState('负责人')
+  const [lines, setLines] = useState<StorageDraftLine[]>([])
+  const [selectionOpen, setSelectionOpen] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<number[]>([])
+  const [selectionKeyword, setSelectionKeyword] = useState('')
+  const [selectionCategory, setSelectionCategory] = useState<string>()
+  const [selectionKind, setSelectionKind] = useState<'PRODUCT' | 'PROJECT' | undefined>()
   const [remark, setRemark] = useState('')
   const [saving, setSaving] = useState(false)
-  useEffect(() => { if (open) { setCustomerId(undefined); setType(undefined); setItem(''); setQuantity(1); setRemark('') } }, [open])
-  const save = async () => {
-    if (!customerId || !type || !item.trim() || quantity <= 0) return
-    setSaving(true)
-    try { await onSave({ customerId, storeId: customers.find(row => row.id === customerId)?.storeId, storageType: type === 'product' ? 'PRODUCT' : 'PROJECT', itemName: item.trim(), quantity, remark: remark.trim() }); onClose() } finally { setSaving(false) }
+  const storeOptionsForForm = stores.filter(item => item.type === 'STORE' && item.status === 1).map(item => ({ value: item.id, label: item.name }))
+  const allItems = useMemo(() => [...products, ...projects], [products, projects])
+  const categoryOptions = useMemo(() => [...new Set(allItems.map(item => item.category).filter((item): item is string => Boolean(item)))].map(value => ({ value, label: value })), [allItems])
+  const availableItems = useMemo(() => allItems.filter(item => (!selectionKind || item.kind === selectionKind) && (!selectionCategory || item.category === selectionCategory) && (!selectionKeyword.trim() || `${item.name}${item.code}${item.category ?? ''}`.toLowerCase().includes(selectionKeyword.trim().toLowerCase()))), [allItems, selectionCategory, selectionKeyword, selectionKind])
+  useEffect(() => { if (open) { setCustomerId(undefined); setStoreId(undefined); setOperator('负责人'); setLines([]); setSelectedIds([]); setSelectionOpen(false); setSelectionKeyword(''); setSelectionCategory(undefined); setSelectionKind(undefined); setRemark('') } }, [open])
+  useEffect(() => { if (customerId !== undefined) setStoreId(customers.find(row => row.id === customerId)?.storeId ?? undefined) }, [customerId, customers])
+  useEffect(() => { setSelectedIds(lines.map(line => line.itemId)) }, [lines])
+  const confirmSelection = () => {
+    const selected = allItems.filter(item => selectedIds.includes(item.id))
+    setLines(selected.map(item => {
+      const existing = lines.find(line => line.itemId === item.id)
+      return existing ?? { itemId: item.id, itemName: item.name, itemCode: item.code, category: item.category, storageType: item.kind === 'PRODUCT' ? 'PRODUCT' : 'PROJECT', quantity: 1 }
+    }))
+    setSelectionOpen(false)
   }
-  return <Modal title="新建寄存" open={open} onCancel={saving ? undefined : onClose} onOk={() => void save()} okButtonProps={{ loading: saving }} okText="保存" cancelText="取消"><div className="customer-form"><label>顾客<Select aria-label="新建寄存顾客" showSearch optionFilterProp="label" value={customerId} onChange={setCustomerId} placeholder="请选择顾客" options={customers.filter(row => typeof row.id === 'number').map(row => ({ value: row.id as number, label: `${row.name} · ${row.phone}` }))} /></label><label>寄存类型<Select aria-label="新建寄存类型" value={type} onChange={setType} placeholder="请选择寄存类型" options={storageTypeOptions} /></label><label>品项<Input value={item} onChange={event => setItem(event.target.value)} placeholder="请输入产品或项目" /></label><label>数量<InputNumber min={0.001} precision={3} value={quantity} onChange={value => setQuantity(value ?? 0)} /></label><label>备注<Input.TextArea value={remark} onChange={event => setRemark(event.target.value)} maxLength={300} /></label></div></Modal>
+  const save = async () => {
+    if (!customerId) { void message.error('请选择寄存顾客'); return }
+    if (!storeId) { void message.error('请选择寄存门店'); return }
+    if (lines.length === 0) { void message.error('请添加至少一个寄存品项'); return }
+    if (lines.some(line => !line.quantity || line.quantity <= 0)) { void message.error('寄存数量必须大于0'); return }
+    setSaving(true)
+    try { await onSave({ customerId, storeId, remark: remark.trim() || undefined, items: lines }); onClose() } finally { setSaving(false) }
+  }
+  return <>
+    <Modal className="storage-create-modal" title="新建寄存" open={open} onCancel={saving ? undefined : onClose} footer={<div className="storage-modal-footer"><Button onClick={onClose} disabled={saving}>取消</Button><Button type="primary" loading={saving} onClick={() => void save()}>确认寄存</Button></div>} width={880} centered destroyOnHidden>
+      <div className="storage-create-form">
+         <div className="storage-create-grid"><label className="required">寄存顾客<Select aria-label="新建寄存顾客" showSearch optionFilterProp="label" value={customerId} onChange={setCustomerId} placeholder="请输入顾客昵称" options={customers.filter(row => typeof row.id === 'number').map(row => ({ value: row.id as number, label: `${row.name || '未命名顾客'} · ${row.phone}` }))} /></label><label className="required">寄存门店<Select aria-label="寄存门店" value={storeId} onChange={setStoreId} placeholder={storeOptionsForForm.length > 0 ? '请选择门店' : '暂无可用门店'} options={storeOptionsForForm} disabled={storeOptionsForForm.length === 0} /></label><label>操作员工<Select aria-label="操作员工" value={operator} onChange={setOperator} options={[{ value: '负责人', label: '负责人' }, ...followupAssignees.filter(item => !item.key.startsWith('unassigned')).map(item => ({ value: item.label, label: item.label }))]} /></label></div>
+        <div className="storage-items-heading"><span className="required-label">寄存品项</span><Button type="primary" icon={<PlusOutlined />} onClick={() => setSelectionOpen(true)}>添加品项</Button></div>
+        <Table<StorageDraftLine> rowKey="itemId" pagination={false} dataSource={lines} locale={{ emptyText: <div className="storage-items-empty"><GoalEmpty /><span>暂无相关数据，请点击添加品项</span></div> }} columns={[{ title: '品/项名称', dataIndex: 'itemName', key: 'itemName' }, { title: '分类', dataIndex: 'category', key: 'category', render: value => value || '—' }, { title: '数量', key: 'quantity', width: 180, render: (_, row) => <InputNumber min={0.001} precision={3} value={row.quantity} onChange={value => setLines(current => current.map(line => line.itemId === row.itemId ? { ...line, quantity: value ?? 0 } : line))} /> }, { title: '操作', key: 'actions', width: 80, render: (_, row) => <Button type="text" danger icon={<DeleteOutlined />} aria-label={`删除${row.itemName}`} onClick={() => setLines(current => current.filter(line => line.itemId !== row.itemId))} /> }]} />
+        <label className="storage-remark-field">备注<Input.TextArea value={remark} onChange={event => setRemark(event.target.value)} maxLength={300} placeholder="请输入备注" rows={3} /></label>
+      </div>
+    </Modal>
+    <Drawer className="storage-selection-drawer" placement="right" size="min(1220px, calc(100vw - 40px))" title={<Space><Button type="text" icon={<ArrowLeftOutlined />} onClick={() => setSelectionOpen(false)} /><strong>品项选择</strong></Space>} closable={false} open={selectionOpen} onClose={() => setSelectionOpen(false)} destroyOnHidden extra={<Space><Button onClick={() => setSelectionOpen(false)}>取消</Button><Button type="primary" icon={<CheckOutlined />} onClick={confirmSelection}>确认选择</Button></Space>} footer={<div className="storage-selection-footer"><span>已选择 {selectedIds.length} 项</span><span>{allItems.filter(item => selectedIds.includes(item.id)).map(item => item.name).join('、') || '暂无选择'}</span></div>}>
+      <div className="storage-selection-filters"><Select allowClear value={selectionKind} onChange={value => setSelectionKind(value)} options={[{ value: 'PRODUCT', label: '产品' }, { value: 'PROJECT', label: '项目' }]} placeholder="请选择品项类型" /><Select allowClear value={selectionCategory} onChange={setSelectionCategory} options={categoryOptions} placeholder="请选择品项分类" /><Input.Search allowClear value={selectionKeyword} onChange={event => setSelectionKeyword(event.target.value)} placeholder="请输入名称或编号" /></div>
+      <Table<CatalogItem> rowKey="id" rowSelection={{ selectedRowKeys: selectedIds, onChange: keys => setSelectedIds(keys as number[]) }} dataSource={availableItems} pagination={{ pageSize: 10, showSizeChanger: false }} columns={[{ title: '品项信息', key: 'item', width: 360, render: (_, row) => <div className="customer-cell-stack"><strong>{row.name}</strong><span>{row.code}</span></div> }, { title: '品项分类', dataIndex: 'category', key: 'category', width: 200, render: value => value || '—' }, { title: '类型', key: 'kind', width: 120, render: (_, row) => row.kind === 'PRODUCT' ? '产品' : '项目' }, { title: '规格/单位', key: 'spec', width: 180, render: (_, row) => `${row.spec || '—'} / ${row.unit || '—'}` }, { title: '售价', dataIndex: 'price', key: 'price', width: 120 }]} scroll={{ x: 1000 }} locale={{ emptyText: '暂无相关品项' }} />
+    </Drawer>
+  </>
 }
 
 function RuleModal({ open, onClose, onSave }: { open: boolean; onClose: () => void; onSave: () => void }) {
@@ -718,6 +1047,7 @@ export default function CustomersPage() {
   const visitTab: VisitTab = rawVisitTab === 'visit' || rawVisitTab === 'rules' ? rawVisitTab : 'detail'
   const [revision, setRevision] = useState(0)
   const [storageRevision, setStorageRevision] = useState(0)
+  const [storageDetailBatchId, setStorageDetailBatchId] = useState<string>()
   const [visitRules, setVisitRules] = useState<VisitRule[]>([])
   const [customerModalOpen, setCustomerModalOpen] = useState(false)
   const [storageModalOpen, setStorageModalOpen] = useState(false)
@@ -734,13 +1064,18 @@ export default function CustomersPage() {
   const departmentQuery = useCatalogQuery<Department[]>('/iam/departments', tenantId, revision, canReadCustomers && tenantIdValid && (!platform || tenantId !== undefined))
   const cardQuery = useCatalogQuery<PageResult<CatalogItem>>('/items?kind=CARD&page=1&pageSize=100&status=1', tenantId, revision, canReadCustomers && tenantIdValid && (!platform || tenantId !== undefined))
   const storageQuery = useCatalogQuery<PageResult<StoredApiRecord>>('/customers/storage?page=1&pageSize=100', tenantId, storageRevision, canReadCustomers && tenantIdValid)
+  const storageProductsQuery = useCatalogQuery<PageResult<CatalogItem>>('/items?kind=PRODUCT&page=1&pageSize=100&status=1', tenantId, revision, canReadCustomers && tenantIdValid && (!platform || tenantId !== undefined))
+  const storageProjectsQuery = useCatalogQuery<PageResult<CatalogItem>>('/items?kind=PROJECT&page=1&pageSize=100&status=1', tenantId, revision, canReadCustomers && tenantIdValid && (!platform || tenantId !== undefined))
+  const storageDetailQuery = useCatalogQuery<StorageBatchDetail>(storageDetailBatchId ? `/customers/storage/${encodeURIComponent(storageDetailBatchId)}` : '/customers/storage/none', tenantId, storageRevision, Boolean(storageDetailBatchId && canReadCustomers && tenantIdValid))
   const records = customerQuery.data?.records ?? []
   const cardNames = (cardQuery.data?.records ?? []).map(item => item.name).filter((name): name is string => Boolean(name))
-  const storedRecords: StoredRecord[] = (storageQuery.data?.records ?? []).map(row => ({ id: row.id, customerId: row.customerId, storeId: row.storeId, storageType: row.storageType, quantity: Number(row.quantity), customer: row.customerName, store: row.storeName, operation: row.storageType === 'PRODUCT' ? '产品寄存' : '项目寄存', item: row.itemName, remark: row.remark ?? '' }))
+  const storedRecords: StoredRecord[] = (storageQuery.data?.records ?? []).map(row => ({ id: row.id, batchId: row.batchId ?? `legacy-${row.id}`, customerId: row.customerId, phone: row.phone, customerCode: row.customerCode, storeId: row.storeId, storageType: row.storageType, quantity: Number(row.quantity), customer: row.customerName, store: row.storeName, operation: row.storageType === 'PRODUCT' ? '产品寄存' : '项目寄存', item: row.itemName, itemCode: row.itemCode, itemCategory: row.itemCategory, operatorName: row.operatorName, createTime: row.createTime, remark: row.remark ?? '' }))
   const detailQuery = useCatalogQuery<CustomerRecord>(detailCustomer && typeof detailCustomer.id === 'number' ? `/customers/${detailCustomer.id}` : '/customers/0', detailCustomer?.tenantId ?? tenantId, revision, Boolean(detailCustomer && typeof detailCustomer.id === 'number' && canReadCustomers && tenantIdValid))
+  const detailStorageQuery = useCatalogQuery<PageResult<StoredApiRecord>>(detailCustomer && typeof detailCustomer.id === 'number' ? `/customers/${detailCustomer.id}/storage?page=1&pageSize=100` : '/customers/0/storage?page=1&pageSize=1', detailCustomer?.tenantId ?? tenantId, storageRevision, Boolean(detailCustomer && typeof detailCustomer.id === 'number' && canReadCustomers && tenantIdValid))
   const setTab = (next: CustomerTab) => setParams(currentQuery(current => { current.set('tab', next); if (next !== 'visit') current.delete('visitTab') }))
   const setVisitTab = (next: VisitTab) => setParams(currentQuery(current => { current.set('tab', 'visit'); current.set('visitTab', next) }))
   const exportRecords = () => { if (!downloadCustomerCsv(records)) void message.info('当前没有可导出的顾客记录') }
+  const exportStorageRecords = () => { if (!downloadStorageCsv(storedRecords)) void message.info('当前没有可导出的寄存记录') }
   const saveCustomer = async (record: CustomerRecord) => {
     const editing = typeof record.id === 'number'
     const payload = { name: record.name, phone: record.phone, code: record.code || undefined, level: record.level, source: record.source, birthday: record.birthday, birthdayType: record.birthdayType, gender: record.gender, joinDate: record.joinDate, avatarUrl: record.avatarUrl, referrer: record.referrer, initialSpent: record.initialSpent, referralDate: record.referralDate, remark: record.remark, tracker: record.tracker, adviser: record.adviser, storeId: record.storeId ?? undefined, cardCount: record.cardCount, balance: record.balance, spent: record.spent, visitCount: record.visitCount, lastVisit: record.lastVisit }
@@ -775,12 +1110,30 @@ export default function CustomersPage() {
       void message.success(assignTarget === 'tracker' ? '跟踪员工已分配' : '专属顾问已分配')
     } catch (cause) { void message.error(errorMessage(cause)); throw cause }
   }
-  const saveStorage = async (input: { customerId: number; storeId?: number | null; storageType: 'PRODUCT' | 'PROJECT'; itemName: string; quantity: number; remark?: string }) => {
+  const saveStorage = async (input: { customerId: number; storeId?: number | null; remark?: string; items: StorageDraftLine[] }) => {
     try {
       await catalogRequest('/customers/storage', tenantId, { method: 'POST', body: JSON.stringify(input) })
       setStorageRevision(value => value + 1)
       void message.success('寄存记录已保存')
     } catch (cause) { void message.error(errorMessage(cause)); throw cause }
+  }
+  const revokeStorage = (row: StoredRecord) => {
+    modal.confirm({ title: '撤销寄存', content: '撤销后无法恢复，是否确认撤销？', okText: '确认撤销', cancelText: '取消', okButtonProps: { danger: true }, onOk: async () => {
+      try {
+        await catalogRequest(`/customers/storage/${encodeURIComponent(row.batchId)}/revoke`, tenantId, { method: 'POST' })
+        setStorageRevision(value => value + 1)
+        void message.success('寄存记录已撤销')
+      } catch (cause) { void message.error(errorMessage(cause)); throw cause }
+    } })
+  }
+  const claimStorage = (row: StoredApiRecord) => {
+    modal.confirm({ title: '领取寄存品项', content: `确认领取“${row.itemName}”1份吗？`, okText: '确认领取', cancelText: '取消', onOk: async () => {
+      try {
+        await catalogRequest(`/customers/storage/lines/${row.id}/claim`, detailCustomer?.tenantId ?? tenantId, { method: 'POST', body: JSON.stringify({ quantity: 1 }) })
+        setStorageRevision(value => value + 1)
+        void message.success('已领取1份')
+      } catch (cause) { void message.error(errorMessage(cause)); throw cause }
+    } })
   }
   const openCustomerAction = (action: 'billing' | 'card', row: CustomerRecord) => {
     if (action === 'billing') navigate(`/billing?customerId=${row.id}`)
@@ -789,7 +1142,7 @@ export default function CustomersPage() {
   const content = tab === 'advanced'
     ? <AdvancedSearchPanel records={records} onDetail={setDetailCustomer} onQuickAction={openCustomerAction} />
     : tab === 'stored'
-      ? <StoredValuePanel records={storedRecords} loading={storageQuery.loading} error={storageQuery.error} onRetry={storageQuery.reload} />
+      ? <StoredValuePanel records={storedRecords} stores={departmentQuery.data ?? []} loading={storageQuery.loading} error={storageQuery.error} onRetry={storageQuery.reload} onDetail={setStorageDetailBatchId} onRevoke={revokeStorage} />
     : tab === 'visit'
         ? <CustomerVisitPanel visitTab={visitTab} onChangeTab={setVisitTab} onEditRule={() => setRuleModalOpen(true)} rules={visitRules} />
         : tab === 'followup'
@@ -808,23 +1161,28 @@ export default function CustomersPage() {
         {tab === 'list' && <Button type="primary" icon={<PlusOutlined />} disabled={platform && tenantId === undefined} title={platform && tenantId === undefined ? '选择企业后可新建顾客档案' : undefined} onClick={() => setCustomerModalOpen(true)}>新建顾客档案</Button>}
         {tab === 'stored' && <Button type="primary" icon={<PlusOutlined />} disabled={platform && tenantId === undefined} title={platform && tenantId === undefined ? '选择企业后可新建寄存' : undefined} onClick={() => setStorageModalOpen(true)}>新建寄存</Button>}
         {tab === 'followup' && <Button type="primary" icon={<QuestionCircleOutlined />} onClick={() => setExplanationOpen(true)}>数据说明</Button>}
-        {(tab === 'list' || tab === 'advanced' || tab === 'stored' || (tab === 'visit' && visitTab === 'detail')) && <Button icon={<DownloadOutlined />} onClick={exportRecords}>批量导出</Button>}
+        {(tab === 'list' || tab === 'advanced' || (tab === 'visit' && visitTab === 'detail')) && <Button icon={<DownloadOutlined />} onClick={exportRecords}>批量导出</Button>}
+        {tab === 'stored' && <Button icon={<DownloadOutlined />} onClick={exportStorageRecords}>批量导出</Button>}
       </TopActions>
     </div>
     {customerQuery.loading && <div className="customer-panel"><Spin /></div>}
     {customerQuery.error && <QueryError error={customerQuery.error} onRetry={customerQuery.reload} />}
     {!customerQuery.loading && !customerQuery.error && content}
     <CustomerEditorModal open={customerModalOpen || Boolean(editingCustomer)} initial={editingCustomer} stores={departmentQuery.data ?? []} onClose={() => { setCustomerModalOpen(false); setEditingCustomer(undefined) }} onSave={saveCustomer} onOpenCard={id => navigate(`/billing?customerId=${id}&action=card`)} />
-    <CustomerDetailDrawer customer={detailQuery.data ?? detailCustomer} loading={detailQuery.loading} error={detailQuery.error} onRetry={detailQuery.reload} onClose={() => setDetailCustomer(undefined)} onAction={(action, customer) => {
+     <CustomerDetailDrawer customer={detailQuery.data ?? detailCustomer} loading={detailQuery.loading} error={detailQuery.error} onRetry={detailQuery.reload} storageRows={detailStorageQuery.data?.records ?? []} storageLoading={detailStorageQuery.loading} storageError={detailStorageQuery.error} onStorageRetry={detailStorageQuery.reload} onClaim={claimStorage} onClose={() => setDetailCustomer(undefined)} onAction={(action, customer) => {
       if (action === '开单') navigate(`/billing?customerId=${customer.id}`)
       else if (action === '开卡') navigate(`/billing?customerId=${customer.id}&action=card`)
       else if (action === '赠送') navigate(`/billing?customerId=${customer.id}&action=gift`)
       else if (action === '预约') navigate(`/appointments?customerId=${customer.id}`)
       else if (action === '资料') { setDetailCustomer(undefined); setEditingCustomer(customer) }
       else if (action === '回访') { setDetailCustomer(undefined); setTab('visit') }
+      else if (action === '设置') { setDetailCustomer(undefined); setEditingCustomer(customer) }
+      else if (action === '无等级') { setDetailCustomer(undefined); setEditingCustomer(customer) }
+      else if (action === '进度') void message.info('顾客进度已打开，当前可在顾客记录和回访页继续跟进')
     }} />
     <CustomerAssignmentModal customers={assigningCustomers} target={assignTarget} onClose={() => setAssigningCustomers([])} onSave={assignCustomer} />
-    <StorageModal open={storageModalOpen} customers={records} onClose={() => setStorageModalOpen(false)} onSave={saveStorage} />
+     <StorageBatchDetailModal open={Boolean(storageDetailBatchId)} detail={storageDetailQuery.data} loading={storageDetailQuery.loading} error={storageDetailQuery.error} onRetry={storageDetailQuery.reload} onClose={() => setStorageDetailBatchId(undefined)} />
+    <StorageModal open={storageModalOpen} customers={records} stores={departmentQuery.data ?? []} products={storageProductsQuery.data?.records ?? []} projects={storageProjectsQuery.data?.records ?? []} onClose={() => setStorageModalOpen(false)} onSave={saveStorage} />
     <RuleModal open={ruleModalOpen} onClose={() => setRuleModalOpen(false)} onSave={() => { setVisitRules(current => [...current, { id: `rule-${Date.now()}`, store: '当前门店', description: '回访后15天内到店计入回访后到店', updatedAt: '刚刚' }]); void message.success('回访规则已保存') }} />
     <Modal title="顾客跟进数据说明" open={explanationOpen} onCancel={() => setExplanationOpen(false)} footer={<Button type="primary" onClick={() => setExplanationOpen(false)}>知道了</Button>}><p>顾客跟进会汇总待回访、已回访和已作废记录，支持按门店、员工、计划时间和超时状态筛选。</p></Modal>
   </section></div>

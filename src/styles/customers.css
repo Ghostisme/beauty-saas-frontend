@@ -153,13 +153,17 @@
 .customer-asset-mode-row .ant-radio-group { display: inline-flex; }
 .customer-asset-mode-row .ant-radio-button-wrapper { padding-inline: 18px; }
 .customer-detail-profile-head { display: flex; align-items: center; gap: 14px; padding: 18px 16px; color: white; background: linear-gradient(135deg, #8fb5bd, #77786b); }
-.customer-detail-profile-head > div:last-child { display: flex; min-width: 0; flex-direction: column; gap: 4px; }
+.customer-detail-profile-head > div:nth-child(2) { display: flex; min-width: 0; flex-direction: column; gap: 4px; }
+.customer-detail-profile-head > .customer-detail-edit-button { margin-left: auto; color: white; }
+.customer-detail-profile-head > .customer-detail-edit-button:hover { color: white; background: rgb(255 255 255 / 15%); }
 .customer-detail-profile-head strong { overflow: hidden; font-size: 20px; text-overflow: ellipsis; white-space: nowrap; }
 .customer-detail-profile-head span { font-size: 12px; opacity: .88; }
 .customer-detail-avatar { display: grid; flex: 0 0 52px; width: 52px; height: 52px; border: 2px solid rgb(255 255 255 / 70%); border-radius: 50%; background: var(--primary-bg); color: var(--primary); place-items: center; font-size: 24px; font-weight: 600; }
 .customer-detail-level { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; color: var(--text-secondary); background: #f5f2e9; font-size: 12px; }
 .customer-detail-level strong { color: var(--text); }
-.customer-detail-level span { color: var(--primary); }
+.customer-detail-level span { display: inline-flex; align-items: center; gap: 2px; color: var(--primary); }
+.customer-detail-level span i { color: var(--border); font-style: normal; }
+.customer-detail-level .ant-btn { padding-inline: 2px; color: var(--primary); font-size: 12px; }
 .customer-detail-fields { padding: 4px 16px; }
 .customer-detail-fields > div { display: flex; min-height: 38px; align-items: center; justify-content: space-between; gap: 12px; border-bottom: 1px dashed var(--border); color: var(--text-tertiary); font-size: 12px; }
 .customer-detail-fields strong { overflow: hidden; color: var(--text-secondary); font-weight: 400; text-align: right; text-overflow: ellipsis; white-space: nowrap; }
@@ -167,6 +171,7 @@
 .customer-detail-note strong { color: var(--text); }
 .customer-detail-note span { color: var(--text-tertiary); }
 .customer-detail-note p { grid-column: 1 / -1; margin: 0; color: var(--text-tertiary); }
+.customer-detail-note-edit { justify-self: end; padding-inline: 4px; color: var(--primary); }
 .customer-detail-note button { padding: 0 5px; border: 1px solid var(--border); background: var(--surface); color: var(--primary); cursor: pointer; }
 .customer-detail-consumption { padding: 16px; border-bottom: 1px solid var(--border); }
 .customer-detail-consumption > div:first-child { display: flex; justify-content: space-between; color: var(--text-tertiary); font-size: 12px; }
@@ -177,6 +182,12 @@
 .customer-detail-actions { display: flex; flex-wrap: wrap; gap: 12px; padding: 16px; }
 .customer-detail-actions .ant-btn { min-width: 56px; border-color: var(--primary); color: var(--primary); }
 .customer-detail-wechat { padding: 14px 16px; border-top: 1px solid var(--border); color: var(--text-secondary); font-size: 12px; }
+.customer-level-settings { display: flex; flex-direction: column; gap: 26px; padding: 8px 4px 12px; color: var(--text-secondary); font-size: 13px; }
+.customer-level-settings > label { display: flex; align-items: center; gap: 20px; }
+.customer-level-settings .ant-select { min-width: 160px; }
+.customer-level-progress { display: flex; min-height: 200px; flex-direction: column; gap: 36px; padding: 12px 4px 24px; color: var(--text); }
+.customer-level-progress strong { font-size: 16px; }
+.customer-level-progress span { color: var(--text-tertiary); font-size: 13px; }
 .storage-create-modal .ant-modal-content { overflow: hidden; padding: 0; }
 .storage-create-modal .ant-modal-header { margin: 0; padding: 18px 22px; border-bottom: 1px solid var(--border); }
 .storage-create-modal .ant-modal-body { max-height: min(720px, calc(100dvh - 210px)); overflow: auto; padding: 22px; }

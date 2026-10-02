@@ -3,7 +3,7 @@ import type { ReactNode } from 'react'
 import dayjs, { type Dayjs } from 'dayjs'
 import { App, Button, Checkbox, DatePicker, Descriptions, Drawer, Dropdown, Image, Input, InputNumber, Modal, Pagination, Radio, Result, Select, Space, Spin, Switch, Table, Tabs, Upload } from 'antd'
 import type { MenuProps, TableColumnsType } from 'antd'
-import { ArrowLeftOutlined, CheckOutlined, DeleteOutlined, DownloadOutlined, DownOutlined, EyeOutlined, PlusOutlined, QuestionCircleOutlined, SearchOutlined, UploadOutlined } from '@ant-design/icons'
+import { ArrowLeftOutlined, CheckOutlined, DeleteOutlined, DownloadOutlined, DownOutlined, EditOutlined, EyeOutlined, PlusOutlined, QuestionCircleOutlined, SearchOutlined, UploadOutlined } from '@ant-design/icons'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { GoalEmpty } from '@/components/GoalEmpty'
 import { useAuth } from '@/context/AuthContext'
@@ -1331,6 +1331,21 @@ function CustomerAlbumTab({ customer }: { customer?: CustomerRecord }) {
 
 function CustomerDetailDrawer({ customer, loading, error, onRetry, onClose, onAction, storageRows = [], storageLoading = false, storageError, onStorageRetry, onClaim }: { customer?: CustomerRecord; loading?: boolean; error?: string; onRetry?: () => void; onClose: () => void; onAction?: (action: string, customer: CustomerRecord) => void; storageRows?: StoredApiRecord[]; storageLoading?: boolean; storageError?: string; onStorageRetry?: () => void; onClaim?: (row: StoredApiRecord) => void }) {
   const [storageKeyword, setStorageKeyword] = useState('')
+  const [remarkOpen, setRemarkOpen] = useState(false)
+  const [remarkDraft, setRemarkDraft] = useState('')
+  const [displayRemark, setDisplayRemark] = useState('')
+  const [levelOpen, setLevelOpen] = useState(false)
+  const [levelDraft, setLevelDraft] = useState('无等级')
+  const [levelLocked, setLevelLocked] = useState(false)
+  const [displayLevel, setDisplayLevel] = useState('无等级')
+  const [progressOpen, setProgressOpen] = useState(false)
+  useEffect(() => {
+    if (!customer) return
+    setDisplayRemark(customer.remark ?? '')
+    setRemarkDraft(customer.remark ?? '')
+    setDisplayLevel(customer.level || '无等级')
+    setLevelDraft(customer.level || '无等级')
+  }, [customer?.id, customer?.level, customer?.remark])
   const visibleStorageRows = useMemo(() => {
     const keyword = storageKeyword.trim().toLowerCase()
     return storageRows.filter(row => !keyword || `${row.itemName}${row.itemCode ?? ''}${row.itemCategory ?? ''}`.toLowerCase().includes(keyword))
@@ -1360,20 +1375,34 @@ function CustomerDetailDrawer({ customer, loading, error, onRetry, onClose, onAc
       { title: '领取', key: 'claim', width: 100, render: (_, row) => <Button type="link" size="small" disabled={Number(row.quantity) <= 0} onClick={() => onClaim?.(row)}>领取</Button> },
     ]} />}
   </div>
+  const saveRemark = () => {
+    const next = remarkDraft.trim()
+    setDisplayRemark(next)
+    setRemarkDraft(next)
+    setRemarkOpen(false)
+    if (customer) onAction?.('备注更新', { ...customer, remark: next })
+  }
+  const saveLevel = () => {
+    const next = levelDraft || '无等级'
+    setDisplayLevel(next)
+    setLevelOpen(false)
+    if (customer) onAction?.('等级更新', { ...customer, level: next })
+  }
   const profile = customer && <>
-    <div className="customer-detail-profile-head"><div className="customer-detail-avatar">{(customer.name || customer.phone || '顾').slice(0, 1)}</div><div><strong>{customer.phone ? maskPhone(customer.phone) : customer.name}</strong><span>{customer.phone || '—'}</span></div></div>
-    <div className="customer-detail-level"><strong>{customer.level || '无等级'}</strong><span>设置&nbsp;&nbsp;|&nbsp;&nbsp;进度</span></div>
+    <div className="customer-detail-profile-head"><div className="customer-detail-avatar">{(customer.name || customer.phone || '顾').slice(0, 1)}</div><div><strong>{customer.phone ? maskPhone(customer.phone) : customer.name}</strong><span>{customer.phone || '—'}</span></div><Button type="text" className="customer-detail-edit-button" icon={<EditOutlined />} aria-label="编辑顾客备注" onClick={() => { setRemarkDraft(displayRemark); setRemarkOpen(true) }} /></div>
+    <div className="customer-detail-level"><strong>{displayLevel}</strong><span><Button type="link" size="small" onClick={() => { setLevelDraft(displayLevel); setLevelOpen(true) }}>设置</Button><i aria-hidden>|</i><Button type="link" size="small" onClick={() => setProgressOpen(true)}>进度</Button></span></div>
     <div className="customer-detail-fields">
       {([['电话', customer.phone], ['生日', customer.birthday], ['会员编号', customer.code], ['所属门店', customer.storeName || '当前门店'], ['顾客来源', customer.source || '—'], ['推荐人', customer.referrer || '—'], ['专属顾问', customer.adviser || '—'], ['跟踪员工', customer.tracker || '—']] as const).map(([label, value]) => <div key={label}><span>{label}：</span><strong>{value || '—'}</strong></div>)}
     </div>
-    <div className="customer-detail-note"><strong>备注信息</strong><span>顾客禁忌</span><p>{customer.remark || '暂无'}</p></div>
+    <div className="customer-detail-note"><strong>备注信息</strong><span>顾客禁忌</span><Button type="text" size="small" className="customer-detail-note-edit" aria-label="编辑顾客备注" onClick={() => { setRemarkDraft(displayRemark); setRemarkOpen(true) }}>编辑</Button><p>{displayRemark || '暂无'}</p></div>
     <div className="customer-detail-note"><strong>顾客标签</strong><button type="button" aria-label="添加顾客标签">＋</button></div>
     <div className="customer-detail-consumption"><div><strong>消费信息</strong><span>最后消费</span></div><div className="customer-detail-consumption-stats"><span><b>{customer.visitCount}</b>消费次数</span><span><b>¥{customer.spent.toFixed(2)}</b>累计消费金额</span><span><b>¥0.00</b>欠款金额</span></div></div>
     <div className="customer-detail-actions">{['开单', '开卡', '预约', '赠送', '回访', '资料'].map(label => <Button key={label} size="small" onClick={() => onAction?.(label, customer)}>{label}</Button>)}</div>
     <div className="customer-detail-wechat">微信：已绑定</div>
   </>
-  const headerActions = customer && <Space size={4} wrap className="customer-detail-header-actions">{['无等级', '设置', '进度', '开单', '开卡', '预约', '赠送', '回访', '资料'].map(label => <Button key={label} type={label === '无等级' ? 'text' : 'link'} size="small" onClick={() => onAction?.(label, customer)}>{label}</Button>)}</Space>
-  return <Drawer title="会员详情" extra={headerActions} className="customer-detail-drawer" placement="right" size="min(1296px, calc(100vw - 144px))" open={Boolean(customer)} onClose={onClose} destroyOnHidden>
+  const headerActions = customer && <Space size={4} wrap className="customer-detail-header-actions"><Button type="text" size="small">{displayLevel}</Button><Button type="link" size="small" onClick={() => { setLevelDraft(displayLevel); setLevelOpen(true) }}>设置</Button><Button type="link" size="small" onClick={() => setProgressOpen(true)}>进度</Button>{['开单', '开卡', '预约', '赠送', '回访', '资料'].map(label => <Button key={label} type="link" size="small" onClick={() => onAction?.(label, customer)}>{label}</Button>)}</Space>
+  return <>
+  <Drawer title="会员详情" extra={headerActions} className="customer-detail-drawer" placement="right" size="min(1296px, calc(100vw - 144px))" open={Boolean(customer)} onClose={onClose} destroyOnHidden>
     {loading && <Spin />}
     {error && <QueryError error={error} onRetry={onRetry ?? (() => undefined)} />}
     {!loading && !error && customer && <div className="customer-detail-layout"><aside className="customer-detail-sidebar">{profile}</aside><section className="customer-detail-main"><Tabs items={[
@@ -1387,6 +1416,16 @@ function CustomerDetailDrawer({ customer, loading, error, onRetry, onClose, onAc
       { key: 'album', label: '顾客相册', children: <CustomerAlbumTab customer={customer} /> },
     ]} /></section></div>}
   </Drawer>
+  <Modal title="顾客备注" open={remarkOpen && Boolean(customer)} onCancel={() => setRemarkOpen(false)} footer={<Space><Button onClick={() => setRemarkOpen(false)}>取消</Button><Button type="primary" onClick={saveRemark}>确定</Button></Space>} destroyOnHidden>
+    <Input.TextArea aria-label="顾客备注信息" value={remarkDraft} onChange={event => setRemarkDraft(event.target.value)} placeholder="请输入顾客备注信息" maxLength={500} showCount autoSize={{ minRows: 4, maxRows: 7 }} />
+  </Modal>
+  <Modal title="设置会员级别" open={levelOpen && Boolean(customer)} onCancel={() => setLevelOpen(false)} footer={<Space><Button onClick={() => setLevelOpen(false)}>取消</Button><Button type="primary" onClick={saveLevel}>确定</Button></Space>} destroyOnHidden>
+    <div className="customer-level-settings"><label>选择级别：<Select aria-label="选择级别" value={levelDraft} onChange={setLevelDraft} options={['无等级', '普通会员', '银卡会员', '金卡会员', '钻石会员'].map(value => ({ value, label: value }))} /></label><Checkbox checked={levelLocked} onChange={event => setLevelLocked(event.target.checked)}>锁定会员等级，等级不会随着自动升级规则而改变</Checkbox></div>
+  </Modal>
+  <Modal title="会员等级进度" open={progressOpen && Boolean(customer)} onCancel={() => setProgressOpen(false)} footer={null} destroyOnHidden>
+    <div className="customer-level-progress"><strong>当前已升级至最高等级</strong><strong>当前等级权益</strong><span>暂无可展示的升级权益</span></div>
+  </Modal>
+  </>
 }
 
 function CustomerAssignmentModal({ customers, target, onClose, onSave }: { customers: CustomerRecord[]; target: 'tracker' | 'adviser'; onClose: () => void; onSave: (name: string) => void }) {

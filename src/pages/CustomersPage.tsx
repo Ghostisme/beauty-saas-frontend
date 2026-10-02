@@ -1467,7 +1467,7 @@ function CustomerDetailDrawer({ customer, loading, error, onRetry, onClose, onAc
       <div className="customer-gift-row"><span>赠送内容</span><Switch aria-label="赠送内容" checked={giftContentEnabled} onChange={setGiftContentEnabled} /></div>
       {giftContentEnabled && <div className="customer-gift-content-control"><button type="button" className="customer-gift-link" onClick={() => setGiftContentEditorOpen(current => !current)}>添加赠送内容</button>{giftContentEditorOpen && <Input aria-label="赠送内容说明" value={giftContent} onChange={event => setGiftContent(event.target.value)} placeholder="请输入赠送内容" maxLength={100} />}</div>}
       <label className="customer-gift-note">赠送备注<Input value={giftNote} onChange={event => setGiftNote(event.target.value)} placeholder="请输入赠送说明" maxLength={100} showCount /></label>
-      <div className="customer-gift-actions"><Button type="primary" onClick={closeGift}>确认赠送</Button><Button onClick={closeGift}>取消</Button></div>
+      {(giftAmountEnabled || giftContentEnabled) && <div className="customer-gift-actions"><Button type="primary" onClick={closeGift}>确认赠送</Button><Button onClick={closeGift}>取消</Button></div>}
     </div>
   </Drawer>
   </>

@@ -702,6 +702,49 @@ interface CustomerHistoryRow extends EmptyRow {
   total: string
 }
 
+interface CustomerArrivalRow extends EmptyRow {
+  arrival: string
+  staff: string
+  content: string
+  amount: string
+}
+
+interface CustomerAppointmentRow extends EmptyRow {
+  time: string
+  duration: string
+  store: string
+  teacher: string
+  content: string
+  note: string
+  status: string
+}
+
+interface CustomerStorageHistoryRow extends EmptyRow {
+  operationTime: string
+  store: string
+  type: string
+  content: string
+  operator: string
+}
+
+interface CustomerEditHistoryRow extends EmptyRow {
+  operator: string
+  operationTime: string
+  event: string
+}
+
+interface CustomerSkinRow extends EmptyRow {
+  imageUrl?: string
+  score: string
+  inputAge: string
+  percentage: string
+  skinAge: string
+  texture: string
+  sensitivity: string
+  color: string
+  time: string
+}
+
 interface CustomerLogRow extends EmptyRow {
   kind: '日志' | '回访'
   content: string
@@ -758,13 +801,58 @@ function CustomerProfileTab({ customer, onEdit }: { customer: CustomerRecord; on
   </div>
 }
 
-function CustomerRecordsTab() {
-  const [activeTab, setActiveTab] = useState('consumption')
+function CustomerRecordsTab({ customer, storageRows = [] }: { customer?: CustomerRecord; storageRows?: StoredApiRecord[] }) {
+  const { modal } = App.useApp()
+  type RecordTabKey = 'consumption' | 'arrival' | 'appointment' | 'storage' | 'edit' | 'skin'
+  const [activeTab, setActiveTab] = useState<RecordTabKey>('consumption')
   const [dateRange, setDateRange] = useState<[Dayjs, Dayjs]>()
   const [store, setStore] = useState<string>()
   const [kind, setKind] = useState<string>()
-  const tabs = [{ key: 'consumption', label: '消费记录' }, { key: 'arrival', label: '到店记录' }, { key: 'appointment', label: '预约记录' }, { key: 'storage', label: '寄存记录' }, { key: 'edit', label: '修改记录' }, { key: 'skin', label: '测肌记录' }]
-  const columns: TableColumnsType<CustomerHistoryRow> = [
+  const [operator, setOperator] = useState<string>()
+  const [appointmentKeyword, setAppointmentKeyword] = useState('')
+  const [skinEnabled, setSkinEnabled] = useState(true)
+  const [skinRows, setSkinRows] = useState<CustomerSkinRow[]>([])
+  const tabs: Array<{ key: RecordTabKey; label: string }> = [
+    { key: 'consumption', label: '消费记录' },
+    { key: 'arrival', label: '到店记录' },
+    { key: 'appointment', label: '预约记录' },
+    { key: 'storage', label: '寄存记录' },
+    { key: 'edit', label: '修改记录' },
+    { key: 'skin', label: '测肌记录' },
+  ]
+
+  // The current detail APIs already provide storage rows.  Appointment and skin
+  // history endpoints are not part of the customer API yet, so keep the same
+  // reference rows used by the supplied detail screenshots until those endpoints
+  // are connected.  All filters and delete/toggle interactions remain local.
+  const appointmentRows = useMemo<CustomerAppointmentRow[]>(() => customer ? [{ id: `appointment-demo-${customer.id}`, time: '2026-10-02 14:00', duration: '60分钟', store: customer.storeName || '当前门店', teacher: '—', content: '—', note: '—', status: '已确认' }] : [], [customer?.id, customer?.storeName])
+  const storageHistoryRows = useMemo<CustomerStorageHistoryRow[]>(() => storageRows.map(row => {
+    const operation = String(row.operationType ?? 'CREATE').toUpperCase()
+    const type = operation === 'CLAIM' ? '领取寄存' : operation === 'REVOKE' ? '撤销寄存' : '新建-寄存'
+    return { id: row.id, operationTime: row.createTime ? dayjs(row.createTime).format('YYYY-MM-DD HH:mm:ss') : '—', store: row.storeName || customer?.storeName || '当前门店', type, content: `${type}（${row.itemName}）x${row.quantity}`, operator: row.operatorName || '负责人' }
+  }), [customer?.storeName, storageRows])
+  const demoSkinRows = useMemo<CustomerSkinRow[]>(() => customer ? [{ id: `skin-demo-${customer.id}`, score: '9.25', inputAge: '33', percentage: '83', skinAge: '28', texture: '混干肌', sensitivity: '轻度敏感', color: '粉一白', time: '2026-09-02 09:12:59' }] : [], [customer?.id])
+  useEffect(() => {
+    setActiveTab('consumption')
+    setDateRange(undefined)
+    setStore(undefined)
+    setKind(undefined)
+    setOperator(undefined)
+    setAppointmentKeyword('')
+    setSkinEnabled(true)
+    setSkinRows(demoSkinRows)
+  }, [demoSkinRows])
+
+  const inDateRange = (value: string) => {
+    if (!dateRange) return true
+    const current = dayjs(value)
+    if (!current.isValid()) return false
+    return current.isAfter(dateRange[0].startOf('day').subtract(1, 'millisecond')) && current.isBefore(dateRange[1].endOf('day').add(1, 'millisecond'))
+  }
+  const storeOptions = [{ value: 'current', label: customer?.storeName || '当前门店' }]
+  const datePicker = <DatePicker.RangePicker aria-label="顾客记录日期范围" value={dateRange} onChange={dates => setDateRange(dates?.[0] && dates[1] ? [dates[0], dates[1]] : undefined)} placeholder={['开始日期', '结束日期']} inputReadOnly />
+
+  const consumptionColumns: TableColumnsType<CustomerHistoryRow> = [
     { title: '订单编号', dataIndex: 'orderNo', key: 'orderNo', width: 150 },
     { title: '订单时间', dataIndex: 'orderTime', key: 'orderTime', width: 170 },
     { title: '订单内容', dataIndex: 'content', key: 'content', width: 240 },
@@ -772,10 +860,86 @@ function CustomerRecordsTab() {
     { title: '订单合计', dataIndex: 'total', key: 'total', width: 130 },
     { title: '操作', key: 'actions', width: 100, render: () => <Button type="link" size="small">详情</Button> },
   ]
+  const arrivalColumns: TableColumnsType<CustomerArrivalRow> = [
+    { title: '到店信息', dataIndex: 'arrival', key: 'arrival', width: 250 },
+    { title: '服务技师', dataIndex: 'staff', key: 'staff', width: 220 },
+    { title: '消费内容', dataIndex: 'content', key: 'content', width: 360 },
+    { title: '消费金额', dataIndex: 'amount', key: 'amount', width: 150 },
+  ]
+  const appointmentColumns: TableColumnsType<CustomerAppointmentRow> = [
+    { title: '预约时间', dataIndex: 'time', key: 'time', width: 180 },
+    { title: '预约时长', dataIndex: 'duration', key: 'duration', width: 130 },
+    { title: '预约门店', dataIndex: 'store', key: 'store', width: 240 },
+    { title: '预约老师', dataIndex: 'teacher', key: 'teacher', width: 150 },
+    { title: '预约内容', dataIndex: 'content', key: 'content', width: 180 },
+    { title: '备注', dataIndex: 'note', key: 'note', width: 150 },
+    { title: '状态', dataIndex: 'status', key: 'status', width: 110, render: value => <span className="customer-record-status">{value}</span> },
+  ]
+  const storageColumns: TableColumnsType<CustomerStorageHistoryRow> = [
+    { title: '操作时间', dataIndex: 'operationTime', key: 'operationTime', width: 190 },
+    { title: '门店', dataIndex: 'store', key: 'store', width: 250 },
+    { title: '类型', dataIndex: 'type', key: 'type', width: 150 },
+    { title: '内容', dataIndex: 'content', key: 'content', width: 360 },
+    { title: '操作人', dataIndex: 'operator', key: 'operator', width: 150 },
+  ]
+  const editColumns: TableColumnsType<CustomerEditHistoryRow> = [
+    { title: '操作人', dataIndex: 'operator', key: 'operator', width: 220 },
+    { title: '操作时间', dataIndex: 'operationTime', key: 'operationTime', width: 250 },
+    { title: '操作事件', dataIndex: 'event', key: 'event' },
+  ]
+  const skinColumns: TableColumnsType<CustomerSkinRow> = [
+    { title: '测肤图片', key: 'image', width: 110, render: (_, row) => row.imageUrl ? <Image width={48} height={48} src={row.imageUrl} alt="测肤图片" /> : <div className="customer-skin-thumb" aria-label="测肤图片">测肤</div> },
+    { title: '总分', dataIndex: 'score', key: 'score', width: 110 },
+    { title: '顾客输入年龄', dataIndex: 'inputAge', key: 'inputAge', width: 150 },
+    { title: '百分比', dataIndex: 'percentage', key: 'percentage', width: 110 },
+    { title: '肤龄', dataIndex: 'skinAge', key: 'skinAge', width: 110 },
+    { title: '肤质', dataIndex: 'texture', key: 'texture', width: 130 },
+    { title: '肤感', dataIndex: 'sensitivity', key: 'sensitivity', width: 150 },
+    { title: '肤色', dataIndex: 'color', key: 'color', width: 130 },
+    { title: '测肤时间', dataIndex: 'time', key: 'time', width: 190 },
+    { title: '操作', key: 'actions', width: 90, render: (_, row) => <Button type="link" size="small" danger onClick={() => modal.confirm({ title: '确认要删除此记录?', icon: <QuestionCircleOutlined style={{ color: '#faad14' }} />, okText: '确定', cancelText: '取消', onOk: () => setSkinRows(current => current.filter(item => item.id !== row.id)) })}>删除</Button> },
+  ]
+
+  const arrivalRows: CustomerArrivalRow[] = []
+  const editRows: CustomerEditHistoryRow[] = []
+  const visibleAppointmentRows = appointmentRows.filter(row => {
+    const keyword = appointmentKeyword.trim().toLowerCase()
+    return inDateRange(row.time) && (!keyword || `${row.store}${row.teacher}${row.content}`.toLowerCase().includes(keyword))
+  })
+  const visibleStorageRows = storageHistoryRows.filter(row => inDateRange(row.operationTime) && (!kind || row.type === kind))
+  const visibleSkinRows = skinEnabled ? skinRows.filter(row => inDateRange(row.time)) : []
+
+  function renderRecordsTable<T extends EmptyRow>(ariaLabel: string, columns: TableColumnsType<T>, rows: T[], width = 980) {
+    if (rows.length === 0) return <EmptyTable<T> ariaLabel={ariaLabel} columns={columns} rows={[]} width={width} />
+    return <div className="customer-table-area customer-records-table-area"><Table<T> aria-label={ariaLabel} rowKey="id" columns={columns} dataSource={rows} pagination={false} scroll={{ x: width }} /><div className="customer-table-footer"><span>当前共搜索到{rows.length}条记录</span></div></div>
+  }
+
   return <div className="customer-records-tab">
-    <div className="customer-inner-tabs">{tabs.map(tab => <button type="button" key={tab.key} className={activeTab === tab.key ? 'is-active' : ''} onClick={() => setActiveTab(tab.key)}>{tab.label}</button>)}</div>
-    <div className="customer-records-filters"><DatePicker.RangePicker aria-label="顾客记录日期范围" value={dateRange} onChange={dates => setDateRange(dates?.[0] && dates[1] ? [dates[0], dates[1]] : undefined)} placeholder={['开始日期', '结束日期']} inputReadOnly /><Select aria-label="顾客记录门店" value={store} onChange={setStore} placeholder="请选择门店" allowClear options={[{ value: 'current', label: '当前门店' }]} /><Select aria-label="顾客记录类型" value={kind} onChange={setKind} placeholder="请选择类型" allowClear options={[{ value: '消费', label: '消费' }, { value: '项目', label: '项目' }, { value: '产品', label: '产品' }]} /></div>
-    <EmptyTable<CustomerHistoryRow> ariaLabel={`${tabs.find(item => item.key === activeTab)?.label ?? '顾客'}列表`} columns={columns} rows={[]} width={980} />
+    <div className="customer-inner-tabs" role="tablist" aria-label="顾客记录分类">{tabs.map(tab => <button type="button" role="tab" aria-selected={activeTab === tab.key} key={tab.key} className={activeTab === tab.key ? 'is-active' : ''} onClick={() => setActiveTab(tab.key)}>{tab.label}</button>)}</div>
+    {activeTab === 'consumption' && <>
+      <div className="customer-records-filters">{datePicker}<Select aria-label="顾客记录门店" value={store} onChange={setStore} placeholder="请选择门店" allowClear options={storeOptions} /><Select aria-label="顾客记录类型" value={kind} onChange={setKind} placeholder="请选择类型" allowClear options={[{ value: '消费', label: '消费' }, { value: '项目', label: '项目' }, { value: '产品', label: '产品' }]} /></div>
+      {renderRecordsTable<CustomerHistoryRow>('消费记录列表', consumptionColumns, [], 1100)}
+    </>}
+    {activeTab === 'arrival' && <>
+      <div className="customer-records-filters customer-records-filters-with-summary">{datePicker}<Select aria-label="到店记录门店" value={store} onChange={setStore} placeholder="请选择门店" allowClear options={storeOptions} /><span className="customer-records-summary">总到店次数：<strong>{customer?.visitCount ?? 0}</strong></span></div>
+      {renderRecordsTable<CustomerArrivalRow>('到店记录列表', arrivalColumns, arrivalRows, 1000)}
+    </>}
+    {activeTab === 'appointment' && <>
+      <div className="customer-records-filters">{datePicker}<Input.Search className="customer-records-search" aria-label="搜索预约记录" placeholder="门店/技师/消费内容" allowClear value={appointmentKeyword} onChange={event => setAppointmentKeyword(event.target.value)} onSearch={setAppointmentKeyword} /></div>
+      {renderRecordsTable<CustomerAppointmentRow>('预约记录列表', appointmentColumns, visibleAppointmentRows, 1240)}
+    </>}
+    {activeTab === 'storage' && <>
+      <div className="customer-records-filters">{datePicker}<Select aria-label="寄存记录类型" value={kind} onChange={setKind} placeholder="请选择类型" allowClear options={[{ value: '新建-寄存', label: '新建-寄存' }, { value: '领取寄存', label: '领取寄存' }, { value: '撤销寄存', label: '撤销寄存' }]} /></div>
+      {renderRecordsTable<CustomerStorageHistoryRow>('寄存记录列表', storageColumns, visibleStorageRows, 1150)}
+    </>}
+    {activeTab === 'edit' && <>
+      <div className="customer-records-filters">{datePicker}<Select aria-label="修改记录操作员" value={operator} onChange={setOperator} placeholder="请选择操作员工" allowClear options={[{ value: '负责人', label: '负责人' }, { value: '模拟员工A', label: '模拟员工A' }]} /></div>
+      {renderRecordsTable<CustomerEditHistoryRow>('修改记录列表', editColumns, editRows.filter(row => !operator || row.operator === operator), 980)}
+    </>}
+    {activeTab === 'skin' && <>
+      <div className="customer-records-filters customer-records-filters-with-summary">{datePicker}<span className="customer-records-switch">测肌开关：<Switch size="small" checked={skinEnabled} onChange={setSkinEnabled} /></span></div>
+      {renderRecordsTable<CustomerSkinRow>('测肌记录列表', skinColumns, visibleSkinRows, 1450)}
+    </>}
   </div>
 }
 
@@ -948,7 +1112,7 @@ function CustomerDetailDrawer({ customer, loading, error, onRetry, onClose, onAc
     {!loading && !error && customer && <div className="customer-detail-layout"><aside className="customer-detail-sidebar">{profile}</aside><section className="customer-detail-main"><Tabs items={[
       { key: 'assets', label: '顾客资产', children: assetContent },
       { key: 'profile', label: '会员资料', children: <CustomerProfileTab customer={customer} onEdit={() => onAction?.('资料', customer)} /> },
-      { key: 'records', label: '顾客记录', children: <CustomerRecordsTab /> },
+      { key: 'records', label: '顾客记录', children: <CustomerRecordsTab customer={customer} storageRows={storageRows} /> },
       { key: 'data', label: '客户数据', children: <CustomerDataTab customer={customer} /> },
       { key: 'logs', label: '服务日志/回访', children: <CustomerLogsTab /> },
       { key: 'archive', label: '顾客档案', children: <CustomerArchivesTab /> },

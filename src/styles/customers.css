@@ -402,3 +402,17 @@
   .customer-album-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .customer-album-item .ant-image-img { height: 120px; }
 }
+
+/* Customer-record sub-tabs */
+.customer-records-filters-with-summary { justify-content: flex-start; }
+.customer-records-summary, .customer-records-switch { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; color: var(--primary); font-size: 12px; white-space: nowrap; }
+.customer-records-summary strong { font-weight: 500; }
+.customer-records-search { width: 300px; }
+.customer-records-table-area { padding-inline: 0; }
+.customer-records-table-area .ant-table-wrapper { min-width: 0; }
+.customer-record-status { color: var(--text-secondary); }
+.customer-skin-thumb { display: inline-flex; width: 48px; height: 48px; align-items: center; justify-content: center; border-radius: 4px; background: #f2f2f2; color: var(--text-tertiary); font-size: 11px; }
+@media (max-width: 767px) {
+  .customer-records-summary, .customer-records-switch { margin-left: 0; }
+  .customer-records-search { width: 100%; }
+}

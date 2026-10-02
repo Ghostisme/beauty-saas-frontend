@@ -983,15 +983,30 @@ function CustomerDataTab({ customer }: { customer: CustomerRecord }) {
   const [wallet, setWallet] = useState(customer.balance ?? 0)
   const [walletModalOpen, setWalletModalOpen] = useState(false)
   const [walletInput, setWalletInput] = useState(customer.balance ?? 0)
+  const [walletRemark, setWalletRemark] = useState('')
   useEffect(() => { setWallet(customer.balance ?? 0); setWalletInput(customer.balance ?? 0) }, [customer.id, customer.balance])
   const money = (value: number) => `¥${value.toFixed(2)}`
   const renderStat = (label: string, value: ReactNode, key: string) => <div key={key} className="customer-data-stat"><span>{label}</span><strong>{value}</strong></div>
+  const openWalletModal = () => { setWalletInput(wallet); setWalletRemark(''); setWalletModalOpen(true) }
+  const closeWalletModal = () => { setWalletModalOpen(false); setWalletRemark('') }
+  const saveWallet = () => {
+    const nextWallet = Number(walletInput)
+    if (!Number.isFinite(nextWallet) || nextWallet < 0) { void message.error('请输入有效的钱包余额'); return }
+    setWallet(nextWallet)
+    closeWalletModal()
+    void message.success('钱包余额已更新')
+  }
   return <div className="customer-data-tab">
-    <section className="customer-data-card"><h3>客户资产</h3><div className="customer-data-grid">{renderStat('会员钱包', <>{money(wallet)} <button type="button" className="customer-data-link" onClick={() => { setWalletInput(wallet); setWalletModalOpen(true) }}>修改</button></>, 'wallet')}{renderStat('剩余消费储值', money(0), 'stored-value')}{renderStat('积分', '0', 'points')}{renderStat('欠款金额', money(0), 'debt')}{renderStat('名下卡/券数', `${customer.cardCount}/0`, 'cards')}</div></section>
+    <section className="customer-data-card"><h3>客户资产</h3><div className="customer-data-grid">{renderStat('会员钱包', <>{money(wallet)} <button type="button" className="customer-data-link" onClick={openWalletModal}>修改</button></>, 'wallet')}{renderStat('剩余消费储值', money(0), 'stored-value')}{renderStat('积分', '0', 'points')}{renderStat('欠款金额', money(0), 'debt')}{renderStat('名下卡/券数', `${customer.cardCount}/0`, 'cards')}</div></section>
     <section className="customer-data-card"><h3>客户贡献</h3><div className="customer-data-grid">{renderStat('累计消费金额', money(customer.spent ?? 0), 'spent')}{renderStat('累计耗卡金额', money(0), 'card-spent')}{renderStat('转介绍人数', '0', 'referrals')}{renderStat('当年消费排名', 'No.', 'year-rank')}{renderStat('累计消费排名', 'No.', 'all-rank')}</div></section>
     <section className="customer-data-card"><h3>客户粘性</h3><div className="customer-data-grid customer-data-grid-3">{renderStat('总到店次数', `${customer.visitCount ?? 0}`, 'visits')}{renderStat('平均到店频率', '天', 'frequency')}{renderStat('生命周期归类', '暂无', 'lifecycle')}</div></section>
     <section className="customer-data-card"><h3>合伙人收益</h3><div className="customer-data-grid customer-data-grid-4">{renderStat('店内消费可用金额', money(0), 'available')}{renderStat('可提现收益', money(0), 'withdraw')}{renderStat('直接推荐人', '0人', 'direct')}{renderStat('间接推荐人', '0人', 'indirect')}</div></section>
-    <Modal title="修改会员钱包" open={walletModalOpen} onCancel={() => setWalletModalOpen(false)} onOk={() => { setWallet(Number(walletInput) || 0); setWalletModalOpen(false); void message.success('会员钱包已更新') }} okText="保存" cancelText="取消" destroyOnHidden><InputNumber aria-label="会员钱包金额" value={walletInput} onChange={value => setWalletInput(value ?? 0)} min={0} precision={2} style={{ width: '100%' }} /></Modal>
+    <Modal title="修改钱包余额" open={walletModalOpen} onCancel={closeWalletModal} footer={<Space className="customer-wallet-modal-actions"><Button onClick={closeWalletModal}>取消</Button><Button type="primary" onClick={saveWallet}>确定</Button></Space>} destroyOnHidden>
+      <div className="customer-wallet-form">
+        <label className="customer-wallet-field required"><span>余额</span><Space.Compact block className="customer-wallet-amount"><InputNumber aria-label="余额" value={walletInput} onChange={value => setWalletInput(value ?? 0)} min={0} precision={2} /><span className="customer-wallet-unit">元</span></Space.Compact></label>
+        <label className="customer-wallet-field"><span>备注</span><Input aria-label="钱包余额备注" value={walletRemark} onChange={event => setWalletRemark(event.target.value)} placeholder="请输入备注" maxLength={100} /></label>
+      </div>
+    </Modal>
   </div>
 }
 

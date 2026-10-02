@@ -685,7 +685,7 @@ function CustomerEditorModal({ open, initial, stores = [], onClose, onSave, onOp
       if (openCard && id !== undefined) onOpenCard?.(id)
     } finally { setSaving(false) }
   }
-  return <Modal className="customer-editor-modal" title={initial ? '编辑顾客档案' : '新建顾客档案'} open={open} onCancel={saving ? undefined : onClose} footer={null} width={1000} centered destroyOnHidden>
+  return <Modal className="customer-editor-modal" title={initial ? '编辑顾客档案' : '新建顾客档案'} open={open} onCancel={saving ? undefined : onClose} footer={null} width={1000} centered zIndex={1200} destroyOnHidden>
     <div className="customer-editor-scroll">
       <section className="customer-editor-section"><h3>基础信息</h3><div className="customer-paste-box"><label>粘贴识别</label><Input.TextArea aria-label="粘贴识别" value={pasteText} onChange={event => setPasteText(event.target.value)} placeholder="粘贴姓名、手机号的文字，如：秒金 137xxx" autoSize={{ minRows: 2, maxRows: 4 }} /><div className="customer-paste-action"><span>识别后自动填入姓名、手机号</span><Button type="primary" onClick={parsePaste}>解析</Button></div></div><div className="customer-editor-grid customer-editor-grid-3"><label className="customer-editor-field required"><span>顾客姓名</span><Input aria-label="顾客姓名" value={name} onChange={event => setName(event.target.value)} placeholder="请输入顾客姓名" maxLength={80} /></label><label className="customer-editor-field"><span>手机号</span><Input aria-label="顾客手机号" value={phone} onChange={event => setPhone(event.target.value)} placeholder="请输入手机号" maxLength={30} /></label><label className="customer-editor-field required"><span>所属门店</span><Select aria-label="所属门店" value={storeId} onChange={setStoreId} placeholder="请选择所属门店" options={storeOptionsForForm} allowClear /></label></div></section>
       <section className="customer-editor-section"><h3>其他信息</h3><div className="customer-editor-grid customer-editor-grid-3"><label className="customer-editor-field"><span>性别</span><Select aria-label="性别" value={gender} onChange={setGender} options={[{ value: '女', label: '女' }, { value: '男', label: '男' }, { value: '其他', label: '其他' }]} /></label><label className="customer-editor-field"><span>顾客来源</span><Select aria-label="顾客来源" value={source} onChange={setSource} placeholder="请选择顾客来源" options={sourceOptions} allowClear /></label><label className="customer-editor-field"><span>顾客生日</span><Space.Compact className="customer-birthday-control"><Select aria-label="顾客生日类型" value={birthdayType} onChange={setBirthdayType} options={[{ value: '阳历', label: '阳历' }, { value: '农历', label: '农历' }]} /><DatePicker aria-label="顾客生日" value={birthday} onChange={value => setBirthday(value ?? undefined)} placeholder="请选择日期" /></Space.Compact></label><label className="customer-editor-field"><span>入会时间</span><DatePicker aria-label="入会时间" value={joinDate} onChange={value => setJoinDate(value ?? undefined)} placeholder="请选择日期" /></label><label className="customer-editor-field"><span>跟踪员工</span><Select aria-label="跟踪员工" value={tracker || undefined} onChange={value => setTracker(value ?? '')} placeholder="请选择跟踪员工" options={followupAssignees.filter(item => !item.key.startsWith('unassigned')).map(item => ({ value: item.label, label: item.label }))} allowClear /></label><label className="customer-editor-field"><span>专属顾问</span><Select aria-label="专属顾问" value={adviser || undefined} onChange={value => setAdviser(value ?? '')} placeholder="请选择专属顾问" options={followupAssignees.filter(item => !item.key.startsWith('unassigned')).map(item => ({ value: item.label, label: item.label }))} allowClear /></label></div><div className="customer-editor-grid customer-editor-grid-3 customer-editor-lower-grid"><div className="customer-editor-field customer-avatar-field customer-editor-span-2"><span>顾客头像 <small>上传png、jpg、Jpeg格式的图片，图片不超过2M</small></span><Upload accept=".png,.jpg,.jpeg" showUploadList={false} beforeUpload={file => readAvatar(file as File)}><button type="button" className="customer-avatar-upload">{avatarUrl ? <img src={avatarUrl} alt="顾客头像" /> : <><UploadOutlined /><span>上传头像</span></>}</button></Upload></div><label className="customer-editor-field"><span>顾客编号</span><Input aria-label="顾客编号" value={code} onChange={event => setCode(event.target.value)} placeholder="请输入顾客编号" maxLength={64} /></label><label className="customer-editor-field"><span>推荐人</span><Select aria-label="推荐人" value={referrer || undefined} onChange={value => setReferrer(value ?? '')} placeholder="请输入推荐人搜索" options={followupAssignees.filter(item => !item.key.startsWith('unassigned')).map(item => ({ value: item.label, label: item.label }))} allowClear /></label><label className="customer-editor-field"><span>初始消费金额</span><InputNumber aria-label="初始消费金额" value={initialSpent} onChange={value => setInitialSpent(value ?? undefined)} min={0} precision={2} placeholder="请输入初始消费金额" /></label></div><div className="customer-editor-grid customer-editor-grid-3"><label className="customer-editor-field customer-editor-span-2"><span>顾客备注</span><Input.TextArea aria-label="顾客备注" value={remark} onChange={event => setRemark(event.target.value)} maxLength={1000} showCount placeholder="请输入顾客备注" rows={3} /></label><label className="customer-editor-field"><span>推荐日期</span><DatePicker aria-label="推荐日期" value={referralDate} onChange={value => setReferralDate(value ?? undefined)} placeholder="请选择日期" /></label></div></section>
@@ -995,7 +995,7 @@ function CustomerDataTab({ customer }: { customer: CustomerRecord }) {
   </div>
 }
 
-function CustomerLogsTab({ customer }: { customer?: CustomerRecord }) {
+function CustomerLogsTab({ customer, initialTab = 'all' }: { customer?: CustomerRecord; initialTab?: 'all' | 'followup' | 'log' }) {
   const { message } = App.useApp()
   type LogTabKey = 'all' | 'followup' | 'log'
   type TaskDateMode = 'fixed' | 'specified'
@@ -1039,7 +1039,7 @@ function CustomerLogsTab({ customer }: { customer?: CustomerRecord }) {
   const resetFollowupForm = () => { setFollowupEmployee(''); setFollowupContent(''); setFollowupTime(dayjs()); setFollowupImage(undefined) }
   const resetTaskForm = () => { setTaskDateMode('fixed'); setTaskDays(15); setTaskDate(undefined); setTaskEmployeeMode('adviser'); setTaskEmployee(''); setTaskScriptMode('fixed'); setTaskScript('') }
   useEffect(() => {
-    setActiveTab('all')
+    setActiveTab(initialTab)
     setDateRange(undefined)
     setFollowupStatus('待回访')
     setRows([])
@@ -1047,7 +1047,7 @@ function CustomerLogsTab({ customer }: { customer?: CustomerRecord }) {
     resetLogForm()
     resetFollowupForm()
     resetTaskForm()
-  }, [customer?.id])
+  }, [customer?.id, initialTab])
   const submitLog = () => {
     if (!logContent.trim()) { void message.error('请输入日志内容'); return }
     setRows(current => [{ id: Date.now(), kind: '日志', content: logContent.trim(), operator: '负责人', recordTime: logTime.format('YYYY-MM-DD HH:mm'), imageName: logImage?.name, imageUrl: logImage?.url }, ...current])
@@ -1331,6 +1331,8 @@ function CustomerAlbumTab({ customer }: { customer?: CustomerRecord }) {
 
 function CustomerDetailDrawer({ customer, loading, error, onRetry, onClose, onAction, storageRows = [], storageLoading = false, storageError, onStorageRetry, onClaim }: { customer?: CustomerRecord; loading?: boolean; error?: string; onRetry?: () => void; onClose: () => void; onAction?: (action: string, customer: CustomerRecord) => void; storageRows?: StoredApiRecord[]; storageLoading?: boolean; storageError?: string; onStorageRetry?: () => void; onClaim?: (row: StoredApiRecord) => void }) {
   const [storageKeyword, setStorageKeyword] = useState('')
+  const [activeDetailTab, setActiveDetailTab] = useState('assets')
+  const [logsTab, setLogsTab] = useState<'all' | 'followup' | 'log'>('all')
   const [remarkOpen, setRemarkOpen] = useState(false)
   const [remarkDraft, setRemarkDraft] = useState('')
   const [displayRemark, setDisplayRemark] = useState('')
@@ -1339,6 +1341,24 @@ function CustomerDetailDrawer({ customer, loading, error, onRetry, onClose, onAc
   const [levelLocked, setLevelLocked] = useState(false)
   const [displayLevel, setDisplayLevel] = useState('无等级')
   const [progressOpen, setProgressOpen] = useState(false)
+  const [giftOpen, setGiftOpen] = useState(false)
+  const [giftAmountEnabled, setGiftAmountEnabled] = useState(false)
+  const [giftContentEnabled, setGiftContentEnabled] = useState(false)
+  const [giftContentEditorOpen, setGiftContentEditorOpen] = useState(false)
+  const [giftAmount, setGiftAmount] = useState<number>()
+  const [giftContent, setGiftContent] = useState('')
+  const [giftNote, setGiftNote] = useState('')
+  useEffect(() => {
+    setActiveDetailTab('assets')
+    setLogsTab('all')
+    setGiftOpen(false)
+    setGiftAmountEnabled(false)
+    setGiftContentEnabled(false)
+    setGiftContentEditorOpen(false)
+    setGiftAmount(undefined)
+    setGiftContent('')
+    setGiftNote('')
+  }, [customer?.id])
   useEffect(() => {
     if (!customer) return
     setDisplayRemark(customer.remark ?? '')
@@ -1388,6 +1408,21 @@ function CustomerDetailDrawer({ customer, loading, error, onRetry, onClose, onAc
     setLevelOpen(false)
     if (customer) onAction?.('等级更新', { ...customer, level: next })
   }
+  const resetGift = () => {
+    setGiftAmountEnabled(false)
+    setGiftContentEnabled(false)
+    setGiftContentEditorOpen(false)
+    setGiftAmount(undefined)
+    setGiftContent('')
+    setGiftNote('')
+  }
+  const closeGift = () => { setGiftOpen(false); resetGift() }
+  const triggerAction = (label: string) => {
+    if (!customer) return
+    if (label === '赠送') { resetGift(); setGiftOpen(true); return }
+    if (label === '回访') { setActiveDetailTab('logs'); setLogsTab('followup'); return }
+    onAction?.(label, customer)
+  }
   const profile = customer && <>
     <div className="customer-detail-profile-head"><div className="customer-detail-avatar">{(customer.name || customer.phone || '顾').slice(0, 1)}</div><div><strong>{customer.phone ? maskPhone(customer.phone) : customer.name}</strong><span>{customer.phone || '—'}</span></div><Button type="text" className="customer-detail-edit-button" icon={<EditOutlined />} aria-label="编辑顾客备注" onClick={() => { setRemarkDraft(displayRemark); setRemarkOpen(true) }} /></div>
     <div className="customer-detail-level"><strong>{displayLevel}</strong><span><Button type="link" size="small" onClick={() => { setLevelDraft(displayLevel); setLevelOpen(true) }}>设置</Button><i aria-hidden>|</i><Button type="link" size="small" onClick={() => setProgressOpen(true)}>进度</Button></span></div>
@@ -1397,20 +1432,20 @@ function CustomerDetailDrawer({ customer, loading, error, onRetry, onClose, onAc
     <div className="customer-detail-note"><strong>备注信息</strong><span>顾客禁忌</span><Button type="text" size="small" className="customer-detail-note-edit" aria-label="编辑顾客备注" onClick={() => { setRemarkDraft(displayRemark); setRemarkOpen(true) }}>编辑</Button><p>{displayRemark || '暂无'}</p></div>
     <div className="customer-detail-note"><strong>顾客标签</strong><button type="button" aria-label="添加顾客标签">＋</button></div>
     <div className="customer-detail-consumption"><div><strong>消费信息</strong><span>最后消费</span></div><div className="customer-detail-consumption-stats"><span><b>{customer.visitCount}</b>消费次数</span><span><b>¥{customer.spent.toFixed(2)}</b>累计消费金额</span><span><b>¥0.00</b>欠款金额</span></div></div>
-    <div className="customer-detail-actions">{['开单', '开卡', '预约', '赠送', '回访', '资料'].map(label => <Button key={label} size="small" onClick={() => onAction?.(label, customer)}>{label}</Button>)}</div>
+    <div className="customer-detail-actions">{['开单', '开卡', '预约', '赠送', '回访', '资料'].map(label => <Button key={label} size="small" onClick={() => triggerAction(label)}>{label}</Button>)}</div>
     <div className="customer-detail-wechat">微信：已绑定</div>
   </>
-  const headerActions = customer && <Space size={4} wrap className="customer-detail-header-actions"><Button type="text" size="small">{displayLevel}</Button><Button type="link" size="small" onClick={() => { setLevelDraft(displayLevel); setLevelOpen(true) }}>设置</Button><Button type="link" size="small" onClick={() => setProgressOpen(true)}>进度</Button>{['开单', '开卡', '预约', '赠送', '回访', '资料'].map(label => <Button key={label} type="link" size="small" onClick={() => onAction?.(label, customer)}>{label}</Button>)}</Space>
+  const headerActions = customer && <Space size={4} wrap className="customer-detail-header-actions"><Button type="text" size="small">{displayLevel}</Button><Button type="link" size="small" onClick={() => { setLevelDraft(displayLevel); setLevelOpen(true) }}>设置</Button><Button type="link" size="small" onClick={() => setProgressOpen(true)}>进度</Button>{['开单', '开卡', '预约', '赠送', '回访', '资料'].map(label => <Button key={label} type="link" size="small" onClick={() => triggerAction(label)}>{label}</Button>)}</Space>
   return <>
   <Drawer title="会员详情" extra={headerActions} className="customer-detail-drawer" placement="right" size="min(1296px, calc(100vw - 144px))" open={Boolean(customer)} onClose={onClose} destroyOnHidden>
     {loading && <Spin />}
     {error && <QueryError error={error} onRetry={onRetry ?? (() => undefined)} />}
-    {!loading && !error && customer && <div className="customer-detail-layout"><aside className="customer-detail-sidebar">{profile}</aside><section className="customer-detail-main"><Tabs items={[
+    {!loading && !error && customer && <div className="customer-detail-layout"><aside className="customer-detail-sidebar">{profile}</aside><section className="customer-detail-main"><Tabs activeKey={activeDetailTab} onChange={setActiveDetailTab} items={[
       { key: 'assets', label: '顾客资产', children: assetContent },
       { key: 'profile', label: '会员资料', children: <CustomerProfileTab customer={customer} onEdit={() => onAction?.('资料', customer)} /> },
       { key: 'records', label: '顾客记录', children: <CustomerRecordsTab customer={customer} storageRows={storageRows} /> },
       { key: 'data', label: '客户数据', children: <CustomerDataTab customer={customer} /> },
-      { key: 'logs', label: '服务日志/回访', children: <CustomerLogsTab customer={customer} /> },
+      { key: 'logs', label: '服务日志/回访', children: <CustomerLogsTab customer={customer} initialTab={logsTab} /> },
       { key: 'archive', label: '顾客档案', children: <CustomerArchivesTab customer={customer} /> },
       { key: 'partner', label: '合伙人信息', children: <CustomerPartnerTab /> },
       { key: 'album', label: '顾客相册', children: <CustomerAlbumTab customer={customer} /> },
@@ -1425,6 +1460,16 @@ function CustomerDetailDrawer({ customer, loading, error, onRetry, onClose, onAc
   <Modal title="会员等级进度" open={progressOpen && Boolean(customer)} onCancel={() => setProgressOpen(false)} footer={null} destroyOnHidden>
     <div className="customer-level-progress"><strong>当前已升级至最高等级</strong><strong>当前等级权益</strong><span>暂无可展示的升级权益</span></div>
   </Modal>
+  <Drawer className="customer-gift-drawer" placement="right" size="min(920px, calc(100vw - 180px))" title={<Space><Button type="text" icon={<ArrowLeftOutlined />} aria-label="返回顾客详情" onClick={closeGift} /><strong>赠送顾客内容</strong></Space>} closable={false} open={giftOpen && Boolean(customer)} onClose={closeGift} destroyOnHidden>
+    <div className="customer-gift-form">
+      <div className="customer-gift-row"><span>赠送原价消费金额</span><Switch aria-label="赠送原价消费金额" checked={giftAmountEnabled} onChange={setGiftAmountEnabled} /></div>
+      {giftAmountEnabled && <div className="customer-gift-control"><InputNumber aria-label="赠送原价消费金额" value={giftAmount} onChange={value => setGiftAmount(value ?? undefined)} min={0} precision={2} placeholder="请输入原价消费金额" addonAfter="元" /></div>}
+      <div className="customer-gift-row"><span>赠送内容</span><Switch aria-label="赠送内容" checked={giftContentEnabled} onChange={setGiftContentEnabled} /></div>
+      {giftContentEnabled && <div className="customer-gift-content-control"><button type="button" className="customer-gift-link" onClick={() => setGiftContentEditorOpen(current => !current)}>添加赠送内容</button>{giftContentEditorOpen && <Input aria-label="赠送内容说明" value={giftContent} onChange={event => setGiftContent(event.target.value)} placeholder="请输入赠送内容" maxLength={100} />}</div>}
+      <label className="customer-gift-note">赠送备注<Input value={giftNote} onChange={event => setGiftNote(event.target.value)} placeholder="请输入赠送说明" maxLength={100} showCount /></label>
+      <div className="customer-gift-actions"><Button type="primary" onClick={closeGift}>确认赠送</Button><Button onClick={closeGift}>取消</Button></div>
+    </div>
+  </Drawer>
   </>
 }
 
@@ -1525,6 +1570,7 @@ export default function CustomersPage() {
   const [explanationOpen, setExplanationOpen] = useState(false)
   const [detailCustomer, setDetailCustomer] = useState<CustomerRecord>()
   const [editingCustomer, setEditingCustomer] = useState<CustomerRecord>()
+  const [editingFromDetail, setEditingFromDetail] = useState(false)
   const [assigningCustomers, setAssigningCustomers] = useState<CustomerRecord[]>([])
   const [assignTarget, setAssignTarget] = useState<'tracker' | 'adviser'>('tracker')
   const rawTenantId = platform ? params.get('tenantId') : null
@@ -1558,6 +1604,7 @@ export default function CustomersPage() {
   }
   const handleMore = (action: 'edit' | 'delete', row: CustomerRecord) => {
     if (action === 'edit') {
+      setEditingFromDetail(false)
       setEditingCustomer(row)
       setCustomerModalOpen(false)
       return
@@ -1628,7 +1675,7 @@ export default function CustomersPage() {
     <div className="customer-tabs-bar">
       <Tabs className="customer-tabs" activeKey={tab} items={tabs} onChange={key => setTab(key as CustomerTab)} />
       <TopActions>
-        {tab === 'list' && <Button type="primary" icon={<PlusOutlined />} disabled={platform && tenantId === undefined} title={platform && tenantId === undefined ? '选择企业后可新建顾客档案' : undefined} onClick={() => setCustomerModalOpen(true)}>新建顾客档案</Button>}
+        {tab === 'list' && <Button type="primary" icon={<PlusOutlined />} disabled={platform && tenantId === undefined} title={platform && tenantId === undefined ? '选择企业后可新建顾客档案' : undefined} onClick={() => { setEditingFromDetail(false); setCustomerModalOpen(true) }}>新建顾客档案</Button>}
         {tab === 'stored' && <Button type="primary" icon={<PlusOutlined />} disabled={platform && tenantId === undefined} title={platform && tenantId === undefined ? '选择企业后可新建寄存' : undefined} onClick={() => setStorageModalOpen(true)}>新建寄存</Button>}
         {tab === 'followup' && <Button type="primary" icon={<QuestionCircleOutlined />} onClick={() => setExplanationOpen(true)}>数据说明</Button>}
         {(tab === 'list' || tab === 'advanced' || (tab === 'visit' && visitTab === 'detail')) && <Button icon={<DownloadOutlined />} onClick={exportRecords}>批量导出</Button>}
@@ -1638,16 +1685,16 @@ export default function CustomersPage() {
     {customerQuery.loading && <div className="customer-panel"><Spin /></div>}
     {customerQuery.error && <QueryError error={customerQuery.error} onRetry={customerQuery.reload} />}
     {!customerQuery.loading && !customerQuery.error && content}
-    <CustomerEditorModal open={customerModalOpen || Boolean(editingCustomer)} initial={editingCustomer} stores={departmentQuery.data ?? []} onClose={() => { setCustomerModalOpen(false); setEditingCustomer(undefined) }} onSave={saveCustomer} onOpenCard={id => navigate(`/billing?customerId=${id}&action=card`)} />
-     <CustomerDetailDrawer customer={detailQuery.data ?? detailCustomer} loading={detailQuery.loading} error={detailQuery.error} onRetry={detailQuery.reload} storageRows={detailStorageQuery.data?.records ?? []} storageLoading={detailStorageQuery.loading} storageError={detailStorageQuery.error} onStorageRetry={detailStorageQuery.reload} onClaim={claimStorage} onClose={() => setDetailCustomer(undefined)} onAction={(action, customer) => {
+    <CustomerEditorModal open={customerModalOpen || Boolean(editingCustomer)} initial={editingCustomer} stores={departmentQuery.data ?? []} onClose={() => { setCustomerModalOpen(false); setEditingCustomer(undefined); if (editingFromDetail) setDetailCustomer(undefined); setEditingFromDetail(false) }} onSave={saveCustomer} onOpenCard={id => navigate(`/billing?customerId=${id}&action=card`)} />
+     <CustomerDetailDrawer customer={detailQuery.data ?? detailCustomer} loading={detailQuery.loading} error={detailQuery.error} onRetry={detailQuery.reload} storageRows={detailStorageQuery.data?.records ?? []} storageLoading={detailStorageQuery.loading} storageError={detailStorageQuery.error} onStorageRetry={detailStorageQuery.reload} onClaim={claimStorage} onClose={() => { setDetailCustomer(undefined); setEditingFromDetail(false) }} onAction={(action, customer) => {
       if (action === '开单') navigate(`/billing?customerId=${customer.id}`)
       else if (action === '开卡') navigate(`/billing?customerId=${customer.id}&action=card`)
       else if (action === '赠送') navigate(`/billing?customerId=${customer.id}&action=gift`)
       else if (action === '预约') navigate(`/appointments?customerId=${customer.id}`)
-      else if (action === '资料') { setDetailCustomer(undefined); setEditingCustomer(customer) }
+      else if (action === '资料') { setEditingFromDetail(true); setEditingCustomer(customer) }
       else if (action === '回访') { setDetailCustomer(undefined); setTab('visit') }
-      else if (action === '设置') { setDetailCustomer(undefined); setEditingCustomer(customer) }
-      else if (action === '无等级') { setDetailCustomer(undefined); setEditingCustomer(customer) }
+      else if (action === '设置') { setDetailCustomer(undefined); setEditingFromDetail(false); setEditingCustomer(customer) }
+      else if (action === '无等级') { setDetailCustomer(undefined); setEditingFromDetail(false); setEditingCustomer(customer) }
       else if (action === '进度') void message.info('顾客进度已打开，当前可在顾客记录和回访页继续跟进')
     }} />
     <CustomerAssignmentModal customers={assigningCustomers} target={assignTarget} onClose={() => setAssigningCustomers([])} onSave={assignCustomer} />

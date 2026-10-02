@@ -129,6 +129,22 @@
 .customer-detail-drawer .ant-drawer-body { padding: 16px; background: var(--page-bg); }
 .customer-detail-drawer .ant-drawer-header { align-items: flex-start; gap: 16px; }
 .customer-detail-drawer .ant-drawer-extra { max-width: min(920px, 72vw); }
+.customer-gift-drawer .ant-drawer-body { padding: 16px; background: var(--page-bg); }
+.customer-gift-drawer .ant-drawer-header { align-items: center; }
+.customer-gift-drawer .ant-drawer-header-title { min-width: 0; }
+.customer-gift-drawer .ant-drawer-title .ant-space { gap: 8px !important; }
+.customer-gift-form { display: flex; min-height: 100%; flex-direction: column; gap: 14px; padding: 0 16px 24px; background: var(--surface); border-radius: var(--radius); }
+.customer-gift-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 58px; padding: 0 16px; background: color-mix(in srgb, var(--primary-bg) 52%, var(--surface)); color: var(--text-secondary); font-size: 13px; }
+.customer-gift-control { padding: 0 16px; }
+.customer-gift-control .ant-input-number { width: min(360px, 100%); }
+.customer-gift-content-control { display: flex; align-items: center; gap: 12px; padding: 0 16px 4px; }
+.customer-gift-content-control .ant-input { max-width: 360px; }
+.customer-gift-link { padding: 0; border: 0; background: transparent; color: var(--primary); cursor: pointer; font: inherit; font-size: 12px; }
+.customer-gift-link:hover { color: var(--primary-hover, #8b1bd8); }
+.customer-gift-note { display: flex; align-items: center; gap: 14px; padding: 0 16px; color: var(--text-secondary); font-size: 13px; }
+.customer-gift-note .ant-input { flex: 1; min-width: 0; }
+.customer-gift-actions { display: flex; gap: 12px; padding: 8px 16px 0; }
+.customer-gift-actions .ant-btn { min-width: 96px; }
 .customer-detail-header-actions { justify-content: flex-end; }
 .customer-detail-header-actions .ant-btn { min-width: 42px; padding-inline: 6px; }
 .customer-detail-layout { display: grid; grid-template-columns: 328px minmax(0, 1fr); min-height: 680px; gap: 16px; }

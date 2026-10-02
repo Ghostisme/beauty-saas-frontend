@@ -1016,6 +1016,7 @@ function CustomerLogsTab({ customer, initialTab = 'all' }: { customer?: Customer
   type TaskDateMode = 'fixed' | 'specified'
   type TaskEmployeeMode = 'adviser' | 'tracker' | 'specified'
   type TaskScriptMode = 'fixed' | 'custom'
+  type TaskErrors = { date?: string; employee?: string; script?: string }
   const [activeTab, setActiveTab] = useState<LogTabKey>('all')
   const [dateRange, setDateRange] = useState<[Dayjs, Dayjs]>()
   const [followupStatus, setFollowupStatus] = useState('待回访')
@@ -1031,13 +1032,14 @@ function CustomerLogsTab({ customer, initialTab = 'all' }: { customer?: Customer
   const [followupContent, setFollowupContent] = useState('')
   const [followupTime, setFollowupTime] = useState<Dayjs>(dayjs())
   const [followupImage, setFollowupImage] = useState<CustomerAttachment>()
-  const [taskDateMode, setTaskDateMode] = useState<TaskDateMode>('fixed')
-  const [taskDays, setTaskDays] = useState(15)
+  const [taskDateMode, setTaskDateMode] = useState<TaskDateMode>('specified')
+  const [taskDays, setTaskDays] = useState<number>()
   const [taskDate, setTaskDate] = useState<Dayjs>()
   const [taskEmployeeMode, setTaskEmployeeMode] = useState<TaskEmployeeMode>('adviser')
   const [taskEmployee, setTaskEmployee] = useState('')
   const [taskScriptMode, setTaskScriptMode] = useState<TaskScriptMode>('fixed')
   const [taskScript, setTaskScript] = useState('')
+  const [taskErrors, setTaskErrors] = useState<TaskErrors>({})
   const tabs = [{ key: 'all', label: '全部' }, { key: 'followup', label: '回访/客勤' }, { key: 'log', label: '服务日志' }] as const
   const employeeOptions = useMemo(() => {
     const names = [customer?.adviser, customer?.tracker, ...followupAssignees.filter(item => !item.key.startsWith('unassigned')).map(item => item.label)].filter((item): item is string => Boolean(item))
@@ -1052,7 +1054,7 @@ function CustomerLogsTab({ customer, initialTab = 'all' }: { customer?: Customer
   }
   const resetLogForm = () => { setLogContent(''); setLogTime(dayjs()); setLogImage(undefined) }
   const resetFollowupForm = () => { setFollowupEmployee(''); setFollowupContent(''); setFollowupTime(dayjs()); setFollowupImage(undefined) }
-  const resetTaskForm = () => { setTaskDateMode('fixed'); setTaskDays(15); setTaskDate(undefined); setTaskEmployeeMode('adviser'); setTaskEmployee(''); setTaskScriptMode('fixed'); setTaskScript('') }
+  const resetTaskForm = () => { setTaskDateMode('specified'); setTaskDays(undefined); setTaskDate(undefined); setTaskEmployeeMode('adviser'); setTaskEmployee(''); setTaskScriptMode('fixed'); setTaskScript(''); setTaskErrors({}) }
   useEffect(() => {
     setActiveTab(initialTab)
     setDateRange(undefined)
@@ -1076,13 +1078,16 @@ function CustomerLogsTab({ customer, initialTab = 'all' }: { customer?: Customer
   }
   const taskEmployeeName = taskEmployeeMode === 'adviser' ? customer?.adviser || '顾客专属顾问' : taskEmployeeMode === 'tracker' ? customer?.tracker || '顾客跟踪员工' : taskEmployee.trim()
   const submitTask = () => {
-    if (taskDateMode === 'fixed' && (!taskDays || taskDays < 1)) { void message.error('请输入计划回访天数'); return }
-    if (taskDateMode === 'specified' && !taskDate) { void message.error('请选择计划回访日期'); return }
-    if (taskEmployeeMode === 'adviser' && !customer?.adviser) { void message.error('顾客未设置专属顾问，无法生成待回访任务'); return }
-    if (taskEmployeeMode === 'tracker' && !customer?.tracker) { void message.error('顾客未设置跟踪员工，无法生成待回访任务'); return }
-    if (taskEmployeeMode === 'specified' && !taskEmployee.trim()) { void message.error('请选择回访员工'); return }
-    if (!taskScript.trim()) { void message.error('请输入回访话术'); return }
-    const dueDate = taskDateMode === 'fixed' ? dayjs().add(taskDays, 'day').format('YYYY-MM-DD') : taskDate?.format('YYYY-MM-DD') ?? ''
+    const errors: TaskErrors = {}
+    if (taskDateMode === 'fixed' && (!taskDays || taskDays < 1)) errors.date = '请完善回访日期周期设置'
+    if (taskDateMode === 'specified' && !taskDate) errors.date = '请完善回访日期'
+    if (taskEmployeeMode === 'adviser' && !customer?.adviser) errors.employee = '顾客未设置专属顾问，无法生成待回访任务'
+    if (taskEmployeeMode === 'tracker' && !customer?.tracker) errors.employee = '顾客未设置跟踪员工，无法生成待回访任务'
+    if (taskEmployeeMode === 'specified' && !taskEmployee.trim()) errors.employee = '请选择回访员工'
+    if (!taskScript.trim()) errors.script = taskScriptMode === 'custom' ? '请输入提醒内容' : '请输入回访话术'
+    setTaskErrors(errors)
+    if (Object.keys(errors).length > 0) return
+    const dueDate = taskDateMode === 'fixed' ? dayjs().add(taskDays ?? 0, 'day').format('YYYY-MM-DD') : taskDate?.format('YYYY-MM-DD') ?? ''
     setTaskRows(current => [{ id: Date.now(), dueDate, employee: taskEmployeeName, script: taskScript.trim(), status: '待回访' }, ...current])
     setTaskModalOpen(false); resetTaskForm(); void message.success('回访任务已创建')
   }
@@ -1118,12 +1123,16 @@ function CustomerLogsTab({ customer, initialTab = 'all' }: { customer?: Customer
     {visibleRows.length > 0 && <div className="customer-log-section"><Table<CustomerLogRow> rowKey="id" pagination={false} dataSource={visibleRows} columns={logColumns} scroll={{ x: 760 }} /></div>}
     <Modal className="customer-followup-task-modal" title="创建待回访任务" open={taskModalOpen} onCancel={() => { setTaskModalOpen(false); resetTaskForm() }} onOk={submitTask} okText="确认" cancelText="取消" width={760} destroyOnHidden>
       <div className="customer-followup-task-form">
-        <label className="required"><span>计划回访日期</span><Radio.Group value={taskDateMode} onChange={event => setTaskDateMode(event.target.value as TaskDateMode)}><Radio value="fixed">固定周期</Radio><Radio value="specified">指定日期</Radio></Radio.Group></label>
-        <div className="customer-task-date-control">{taskDateMode === 'fixed' ? <><span>计划回访日期为</span><InputNumber aria-label="计划回访天数" min={1} precision={0} value={taskDays} onChange={value => setTaskDays(value ?? 0)} /><span>天后</span></> : <DatePicker aria-label="计划回访日期" value={taskDate} onChange={value => setTaskDate(value ?? undefined)} placeholder="请选择日期" />}</div>
-        <label className="required"><span>回访员工</span><Radio.Group value={taskEmployeeMode} onChange={event => setTaskEmployeeMode(event.target.value as TaskEmployeeMode)}><Radio value="adviser">顾客专属顾问</Radio><Radio value="tracker">顾客跟踪员工</Radio><Radio value="specified">指定员工</Radio></Radio.Group></label>
-        {taskEmployeeMode === 'specified' && <Select aria-label="指定回访员工" value={taskEmployee || undefined} onChange={setTaskEmployee} placeholder="请选择员工" options={employeeOptions} />}
+        <label className="required"><span>计划回访日期</span><Radio.Group value={taskDateMode} onChange={event => { setTaskDateMode(event.target.value as TaskDateMode); setTaskErrors(current => ({ ...current, date: undefined })) }}><Radio value="fixed">固定周期</Radio><Radio value="specified">指定日期</Radio></Radio.Group></label>
+        <div className="customer-task-date-control">
+          {taskDateMode === 'fixed' ? <><span>计划回访日期为</span><InputNumber aria-label="计划回访天数" min={1} precision={0} status={taskErrors.date ? 'error' : undefined} value={taskDays} onChange={value => { setTaskDays(value ?? undefined); setTaskErrors(current => ({ ...current, date: undefined })) }} /><span>天后</span></> : <DatePicker aria-label="计划回访日期" status={taskErrors.date ? 'error' : undefined} value={taskDate} onChange={value => { setTaskDate(value ?? undefined); setTaskErrors(current => ({ ...current, date: undefined })) }} placeholder="请选择日期" />}
+          {taskErrors.date && <div className="customer-task-field-error">{taskErrors.date}</div>}
+        </div>
+        <label className="required"><span>回访员工</span><Radio.Group value={taskEmployeeMode} onChange={event => { setTaskEmployeeMode(event.target.value as TaskEmployeeMode); setTaskEmployee(''); setTaskErrors(current => ({ ...current, employee: undefined })) }}><Radio value="adviser">顾客专属顾问</Radio><Radio value="tracker">顾客跟踪员工</Radio><Radio value="specified">指定员工</Radio></Radio.Group></label>
+        {taskEmployeeMode === 'specified' && <Select aria-label="指定回访员工" status={taskErrors.employee ? 'error' : undefined} value={taskEmployee || undefined} onChange={value => { setTaskEmployee(value); setTaskErrors(current => ({ ...current, employee: undefined })) }} placeholder="请选择员工" options={employeeOptions} />}
+        {taskErrors.employee && <div className="customer-task-field-error customer-task-employee-error">{taskErrors.employee}</div>}
         <div className="customer-task-hint">温馨提示：1. 顾客有多个跟踪员工/专属顾问，默认选择设置的第一个员工生成待回访任务<br />　　　　2. 顾客未设置跟踪员工/专属顾问，不会生成待回访任务</div>
-        <label className="required"><span>回访话术</span><div className="customer-task-script-heading"><Radio.Group value={taskScriptMode} onChange={event => setTaskScriptMode(event.target.value as TaskScriptMode)}><Radio value="fixed">固定话术</Radio><Radio value="custom">单独设定</Radio></Radio.Group><Button size="small" onClick={() => setTaskScript(current => current || '您好，感谢您的支持，欢迎再次到店。')}>话术模板</Button></div><Input.TextArea aria-label="回访话术" value={taskScript} onChange={event => setTaskScript(event.target.value)} placeholder="请输入提醒信息" maxLength={500} showCount rows={4} /></label>
+        <label className="required"><span>回访话术</span><div className="customer-task-script-heading"><Radio.Group value={taskScriptMode} onChange={event => { setTaskScriptMode(event.target.value as TaskScriptMode); setTaskErrors(current => ({ ...current, script: undefined })) }}><Radio value="fixed">固定话术</Radio><Radio value="custom">单独设定</Radio></Radio.Group><Button size="small" onClick={() => { setTaskScript(current => current || '您好，感谢您的支持，欢迎再次到店。'); setTaskErrors(current => ({ ...current, script: undefined })) }}>话术模板</Button></div>{taskScriptMode === 'custom' && <div className="customer-task-reminder-time">提醒时间： {taskDateMode === 'fixed' ? (taskDays ? taskDays : '') + '天后提醒' : '指定日期提醒'}</div>}<Input.TextArea aria-label="回访话术" status={taskErrors.script ? 'error' : undefined} value={taskScript} onChange={event => { setTaskScript(event.target.value); setTaskErrors(current => ({ ...current, script: undefined })) }} placeholder="请输入提醒信息" maxLength={500} showCount rows={4} />{taskErrors.script && <div className="customer-task-field-error">{taskErrors.script}</div>}</label>
       </div>
     </Modal>
     <Modal className="customer-log-modal" title="添加顾客日志" open={logModalOpen} onCancel={() => { setLogModalOpen(false); resetLogForm() }} onOk={submitLog} okText="确定" cancelText="取消" width={620} destroyOnHidden><div className="customer-log-form"><label>添加人员<Input value="负责人" disabled /></label><label className="required">日志内容<Input.TextArea value={logContent} onChange={event => setLogContent(event.target.value)} placeholder="输入日志" maxLength={1000} showCount rows={5} /></label><label>记录时间<DatePicker showTime value={logTime} onChange={value => setLogTime(value ?? dayjs())} style={{ width: '100%' }} /></label><label>上传图片<small>上传png、jpg、jpeg格式的图片，每张不超过10M</small>{uploadControl(logImage, setLogImage)}</label></div></Modal>

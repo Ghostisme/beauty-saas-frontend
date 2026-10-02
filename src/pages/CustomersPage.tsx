@@ -767,6 +767,33 @@ interface CustomerArchiveRecord extends EmptyRow {
   recordTime: string
 }
 
+type CustomerArchiveFormKey = 'consultation' | 'skin-type'
+
+interface CustomerArchiveTemplate {
+  id: number
+  name: string
+  type: string
+  form: CustomerArchiveFormKey
+}
+
+interface ConsultationArchiveForm {
+  skinStatus: string[]
+  skinIssues: string[]
+  careCycle?: string
+  products: string[]
+  workEnvironment: string[]
+}
+
+interface SkinTypeArchiveForm {
+  skinType?: string
+  sensitivity?: string
+  sensitivityDetail: string
+  acne?: string
+  acneDetail: string
+}
+
+type CustomerArchiveFormData = ConsultationArchiveForm | SkinTypeArchiveForm
+
 interface CustomerAlbumImage extends EmptyRow {
   name: string
   url: string
@@ -1088,36 +1115,158 @@ function CustomerLogsTab({ customer }: { customer?: CustomerRecord }) {
   </div>
 }
 
-function CustomerArchivesTab() {
+function createArchiveQrMatrix(seed: string, size = 29) {
+  const matrix = Array.from({ length: size }, () => Array<boolean>(size).fill(false))
+  const reserved = Array.from({ length: size }, () => Array<boolean>(size).fill(false))
+  const placeFinder = (originX: number, originY: number) => {
+    for (let y = -1; y <= 7; y += 1) {
+      for (let x = -1; x <= 7; x += 1) {
+        const px = originX + x
+        const py = originY + y
+        if (px < 0 || py < 0 || px >= size || py >= size) continue
+        reserved[py][px] = true
+        matrix[py][px] = x >= 0 && x <= 6 && y >= 0 && y <= 6 && (x === 0 || x === 6 || y === 0 || y === 6 || (x >= 2 && x <= 4 && y >= 2 && y <= 4))
+      }
+    }
+  }
+  placeFinder(0, 0)
+  placeFinder(size - 7, 0)
+  placeFinder(0, size - 7)
+  let hash = 2166136261
+  for (const char of seed) hash = Math.imul(hash ^ char.charCodeAt(0), 16777619)
+  for (let y = 0; y < size; y += 1) {
+    for (let x = 0; x < size; x += 1) {
+      if (reserved[y][x]) continue
+      hash = Math.imul(hash ^ (x + y * size + 31), 16777619)
+      matrix[y][x] = ((hash >>> 0) & 1) === 1
+    }
+  }
+  return matrix
+}
+
+function archiveQrSvgMarkup(matrix: boolean[][]) {
+  const size = matrix.length
+  const moduleSize = 8
+  const cells = matrix.flatMap((row, y) => row.map((filled, x) => filled ? `<rect x="${x * moduleSize}" y="${y * moduleSize}" width="${moduleSize}" height="${moduleSize}" fill="#111"/>` : ''))
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${size * moduleSize} ${size * moduleSize}" role="img" aria-label="顾客档案填写二维码"><rect width="100%" height="100%" fill="#fff"/>${cells.join('')}</svg>`
+}
+
+function CustomerArchiveQr({ matrix }: { matrix: boolean[][] }) {
+  const size = matrix.length
+  return <svg className="customer-archive-qr-svg" viewBox={`0 0 ${size} ${size}`} role="img" aria-label="顾客档案填写二维码" shapeRendering="crispEdges"><rect width="100%" height="100%" fill="#fff" />{matrix.flatMap((row, y) => row.map((filled, x) => filled ? <rect key={`${x}-${y}`} x={x} y={y} width="1" height="1" fill="#111" /> : null))}</svg>
+}
+
+function CustomerArchivesTab({ customer }: { customer?: CustomerRecord }) {
   const { message } = App.useApp()
   const [mode, setMode] = useState<'record' | 'archive'>('record')
+  const [recordItemModalOpen, setRecordItemModalOpen] = useState(false)
   const [recordModalOpen, setRecordModalOpen] = useState(false)
   const [fillModalOpen, setFillModalOpen] = useState(false)
+  const [archiveFormOpen, setArchiveFormOpen] = useState(false)
+  const [qrModalOpen, setQrModalOpen] = useState(false)
   const [recordContent, setRecordContent] = useState('')
   const [recordTime, setRecordTime] = useState<Dayjs>(dayjs())
   const [recordRows, setRecordRows] = useState<CustomerArchiveRecord[]>([])
-  const [filledTemplates, setFilledTemplates] = useState<number[]>([])
-  const [selectedTemplate, setSelectedTemplate] = useState<number>()
+  const [selectedRecordItem, setSelectedRecordItem] = useState<string>()
+  const [selectedTemplate, setSelectedTemplate] = useState<CustomerArchiveTemplate>()
+  const [archiveFormTemplate, setArchiveFormTemplate] = useState<CustomerArchiveTemplate>()
+  const [filledForms, setFilledForms] = useState<Record<number, CustomerArchiveFormData>>({})
   const [dateRange, setDateRange] = useState<[Dayjs, Dayjs]>()
   const [archiveType, setArchiveType] = useState<string>()
-  const templates = [{ id: 1, name: '咨询单', type: '公开档案' }, { id: 2, name: '16肌肤分型问诊表', type: '公开档案' }]
+  const [consultationForm, setConsultationForm] = useState<ConsultationArchiveForm>({ skinStatus: [], skinIssues: [], careCycle: undefined, products: [], workEnvironment: [] })
+  const [skinTypeForm, setSkinTypeForm] = useState<SkinTypeArchiveForm>({ skinType: undefined, sensitivity: undefined, sensitivityDetail: '', acne: undefined, acneDetail: '' })
+  const templates: CustomerArchiveTemplate[] = [{ id: 1, name: '咨询单', type: '公开档案', form: 'consultation' }, { id: 2, name: '16肌肤分型问诊表', type: '公开档案', form: 'skin-type' }]
+  const recordItemOptions = ['效果对比图', '处方笺', '三阶段规划']
+  const consultationSkinStatus = ['在皮肤科、整形科做过手术', '过去三个月内皮肤有过创伤', '有对某种产品产生过过敏', '以上均不符合']
+  const consultationSkinIssues = ['毛孔', '黑头', '痘痘', '色斑', '美白', '补水', '提升', '抗衰', '敏感肌修复管理', '身体亚健康管理']
+  const consultationProducts = ['洗面奶', '爽肤水', '精华素', '精油', '日霜', '晚霜', '隔离霜', '防晒霜', '眼霜', '粉底', '彩妆', '防晒指数', '什么都不用']
+  const consultationWorkEnvironment = ['经常出差', '高温工作', '接触化工类产品', '无需工作', '长时间暴晒', '长时间电脑辐射', '室内', '其他']
+  const qrMatrix = useMemo(() => createArchiveQrMatrix(`customer:${customer?.id ?? 'preview'}:template:${selectedTemplate?.id ?? 'none'}`), [customer?.id, selectedTemplate?.id])
+  const qrMarkup = useMemo(() => archiveQrSvgMarkup(qrMatrix), [qrMatrix])
+  useEffect(() => {
+    setMode('record')
+    setRecordItemModalOpen(false)
+    setRecordModalOpen(false)
+    setFillModalOpen(false)
+    setArchiveFormOpen(false)
+    setQrModalOpen(false)
+    setRecordContent('')
+    setRecordTime(dayjs())
+    setRecordRows([])
+    setSelectedRecordItem(undefined)
+    setSelectedTemplate(undefined)
+    setArchiveFormTemplate(undefined)
+    setFilledForms({})
+    setDateRange(undefined)
+    setArchiveType(undefined)
+    setConsultationForm({ skinStatus: [], skinIssues: [], careCycle: undefined, products: [], workEnvironment: [] })
+    setSkinTypeForm({ skinType: undefined, sensitivity: undefined, sensitivityDetail: '', acne: undefined, acneDetail: '' })
+  }, [customer?.id])
   const modeToggle = <div className="customer-archive-toggle"><button type="button" className={mode === 'record' ? 'is-active' : ''} onClick={() => setMode('record')}>顾客记录</button><button type="button" className={mode === 'archive' ? 'is-active' : ''} onClick={() => setMode('archive')}>顾客档案</button></div>
+  const openRecordItemPicker = () => { setSelectedRecordItem(undefined); setRecordItemModalOpen(true) }
+  const chooseRecordItem = (item: string) => { setSelectedRecordItem(item); setRecordItemModalOpen(false); setRecordContent(''); setRecordTime(dayjs()); setRecordModalOpen(true) }
   const addRecord = () => {
     if (!recordContent.trim()) { void message.error('请输入顾客记录'); return }
-    setRecordRows(rows => [{ id: Date.now(), content: recordContent.trim(), operator: '负责人', recordTime: recordTime.format('YYYY-MM-DD HH:mm') }, ...rows])
-    setRecordModalOpen(false); setRecordContent(''); setRecordTime(dayjs()); void message.success('顾客记录已添加')
+    const content = selectedRecordItem ? `${selectedRecordItem}：${recordContent.trim()}` : recordContent.trim()
+    setRecordRows(rows => [{ id: Date.now(), content, operator: '负责人', recordTime: recordTime.format('YYYY-MM-DD HH:mm') }, ...rows])
+    setRecordModalOpen(false); setRecordContent(''); setRecordTime(dayjs()); setSelectedRecordItem(undefined); void message.success('顾客记录已添加')
+  }
+  const openArchiveForm = (template: CustomerArchiveTemplate) => {
+    const existing = filledForms[template.id]
+    setArchiveFormTemplate(template)
+    if (template.form === 'consultation') setConsultationForm(existing && 'skinStatus' in existing ? { ...existing, skinStatus: [...existing.skinStatus], skinIssues: [...existing.skinIssues], products: [...existing.products], workEnvironment: [...existing.workEnvironment] } : { skinStatus: [], skinIssues: [], careCycle: undefined, products: [], workEnvironment: [] })
+    if (template.form === 'skin-type') setSkinTypeForm(existing && 'sensitivityDetail' in existing ? { ...existing } : { skinType: undefined, sensitivity: undefined, sensitivityDetail: '', acne: undefined, acneDetail: '' })
+    setArchiveFormOpen(true)
+  }
+  const openFillMethod = (template: CustomerArchiveTemplate) => { setSelectedTemplate(template); setFillModalOpen(true) }
+  const saveArchiveForm = () => {
+    if (!archiveFormTemplate) return
+    const form = archiveFormTemplate.form === 'consultation'
+      ? { ...consultationForm, skinStatus: [...consultationForm.skinStatus], skinIssues: [...consultationForm.skinIssues], products: [...consultationForm.products], workEnvironment: [...consultationForm.workEnvironment] }
+      : { ...skinTypeForm }
+    setFilledForms(current => ({ ...current, [archiveFormTemplate.id]: form }))
+    setArchiveFormOpen(false)
+    void message.success(`${archiveFormTemplate.name}已保存`)
+  }
+  const downloadQr = () => {
+    const url = URL.createObjectURL(new Blob([qrMarkup], { type: 'image/svg+xml;charset=utf-8' }))
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `${selectedTemplate?.name ?? '顾客档案'}填写二维码.svg`
+    document.body.append(link)
+    link.click()
+    link.remove()
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000)
+    void message.success('二维码已保存')
   }
   const visibleTemplates = templates.filter(template => !archiveType || template.type === archiveType)
   return <div className="customer-archives-tab">
     {mode === 'record' ? <>
-      <div className="customer-archive-toolbar"><Select aria-label="顾客档案模板" placeholder="请选择模板" allowClear options={templates.map(item => ({ value: item.id, label: item.name }))} /><div className="customer-archive-toolbar-right">{modeToggle}<Button type="primary" onClick={() => setRecordModalOpen(true)}>添加顾客记录</Button></div></div>
+      <div className="customer-archive-toolbar"><Select aria-label="顾客档案模板" placeholder="请选择模板" allowClear options={templates.map(item => ({ value: item.id, label: item.name }))} /><div className="customer-archive-toolbar-right">{modeToggle}<Button type="primary" onClick={openRecordItemPicker}>添加顾客记录</Button></div></div>
       {recordRows.length === 0 ? <div className="customer-detail-empty"><GoalEmpty /><span>暂无相关数据</span></div> : <Table<CustomerArchiveRecord> rowKey="id" pagination={false} dataSource={recordRows} columns={[{ title: '记录内容', dataIndex: 'content', key: 'content' }, { title: '记录人', dataIndex: 'operator', key: 'operator', width: 150 }, { title: '记录时间', dataIndex: 'recordTime', key: 'recordTime', width: 180 }]} />}
     </> : <>
       <div className="customer-archive-toolbar"><Space><DatePicker.RangePicker aria-label="顾客档案日期范围" value={dateRange} onChange={dates => setDateRange(dates?.[0] && dates[1] ? [dates[0], dates[1]] : undefined)} placeholder={['开始日期', '结束日期']} inputReadOnly /><Select aria-label="顾客档案类型" value={archiveType} onChange={setArchiveType} placeholder="请选择类型" allowClear options={[{ value: '公开档案', label: '公开档案' }]} /></Space><div className="customer-archive-toolbar-right">{modeToggle}</div></div>
-      <div className="customer-archive-table"><div className="customer-archive-table-head"><span>档案名称</span><span>类型</span><span>是否填写</span><span>操作</span></div>{visibleTemplates.map(template => <div className="customer-archive-table-row" key={template.id}><span>{template.name}</span><span>{template.type}</span><span>{filledTemplates.includes(template.id) ? '已填写' : '未填写'}</span><span><Button type="link" size="small" onClick={() => { setSelectedTemplate(template.id); setFillModalOpen(true) }}>{filledTemplates.includes(template.id) ? '查看' : '填写'}</Button></span></div>)}</div>
+      <div className="customer-archive-table"><div className="customer-archive-table-head"><span>档案名称</span><span>类型</span><span>是否填写</span><span>操作</span></div>{visibleTemplates.map(template => { const filled = Boolean(filledForms[template.id]); return <div className="customer-archive-table-row" key={template.id}><span>{template.name}</span><span>{template.type}</span><span>{filled ? '已填写' : '未填写'}</span><span><Button type="link" size="small" onClick={() => filled ? openArchiveForm(template) : openFillMethod(template)}>{filled ? '查看' : '填写'}</Button></span></div> })}</div>
     </>}
-    <Modal title="添加顾客记录" open={recordModalOpen} onCancel={() => setRecordModalOpen(false)} onOk={addRecord} okText="确定" cancelText="取消" destroyOnHidden><div className="customer-log-form"><label className="required">记录内容<Input.TextArea value={recordContent} onChange={event => setRecordContent(event.target.value)} maxLength={1000} showCount rows={5} placeholder="请输入顾客记录" /></label><label>记录时间<DatePicker showTime value={recordTime} onChange={value => setRecordTime(value ?? dayjs())} style={{ width: '100%' }} /></label></div></Modal>
-    <Modal title="选择填写方式" open={fillModalOpen} onCancel={() => setFillModalOpen(false)} footer={null} width={520} destroyOnHidden><div className="customer-archive-fill-options"><button type="button" onClick={() => { if (selectedTemplate) setFilledTemplates(current => current.includes(selectedTemplate) ? current : [...current, selectedTemplate]); setFillModalOpen(false); void message.success('已进入门店填写') }}><strong>✎</strong><b>门店自行填写</b><span>由门店工作人员手动填写顾客信息</span></button><button type="button" onClick={() => { setFillModalOpen(false); void message.success('已生成邀请二维码') }}><strong>▦</strong><b>邀请顾客填写</b><span>生成二维码，顾客扫码自行填写</span></button></div></Modal>
+    <Modal title="请选择档案项" open={recordItemModalOpen} onCancel={() => setRecordItemModalOpen(false)} footer={null} width={620} destroyOnHidden><div className="customer-archive-item-picker">{recordItemOptions.map(item => <button type="button" key={item} onClick={() => chooseRecordItem(item)}>{item}</button>)}</div></Modal>
+    <Modal title="添加顾客记录" open={recordModalOpen} onCancel={() => { setRecordModalOpen(false); setSelectedRecordItem(undefined) }} onOk={addRecord} okText="确定" cancelText="取消" destroyOnHidden><div className="customer-log-form"><label>档案项<Input value={selectedRecordItem ?? '未选择'} disabled /></label><label className="required">记录内容<Input.TextArea value={recordContent} onChange={event => setRecordContent(event.target.value)} maxLength={1000} showCount rows={5} placeholder="请输入顾客记录" /></label><label>记录时间<DatePicker showTime value={recordTime} onChange={value => setRecordTime(value ?? dayjs())} style={{ width: '100%' }} /></label></div></Modal>
+    <Modal title="选择填写方式" open={fillModalOpen} onCancel={() => setFillModalOpen(false)} footer={null} width={520} destroyOnHidden><div className="customer-archive-fill-options"><button type="button" onClick={() => { if (!selectedTemplate) return; setFillModalOpen(false); openArchiveForm(selectedTemplate) }}><strong>✎</strong><b>门店自行填写</b><span>由门店工作人员手动填写顾客信息</span></button><button type="button" onClick={() => { if (!selectedTemplate) return; setFillModalOpen(false); setQrModalOpen(true) }}><strong>▦</strong><b>邀请顾客填写</b><span>生成二维码，顾客扫码自行填写</span></button></div></Modal>
+    <Modal className="customer-archive-form-modal" title={archiveFormTemplate?.name ?? '填写档案'} open={archiveFormOpen} onCancel={() => setArchiveFormOpen(false)} onOk={saveArchiveForm} okText="确定" cancelText="取消" width={620} destroyOnHidden>
+      {archiveFormTemplate?.form === 'consultation' ? <div className="customer-archive-form">
+        <section className="customer-archive-form-section"><h4>1、皮肤状况</h4><Checkbox.Group className="customer-archive-option-group customer-archive-option-grid-2" value={consultationForm.skinStatus} options={consultationSkinStatus} onChange={values => setConsultationForm(current => ({ ...current, skinStatus: values as string[] }))} /></section>
+        <section className="customer-archive-form-section"><h4>2、最想改善的肌肤问题</h4><Checkbox.Group className="customer-archive-option-group customer-archive-option-grid-4" value={consultationForm.skinIssues} options={consultationSkinIssues} onChange={values => setConsultationForm(current => ({ ...current, skinIssues: values as string[] }))} /></section>
+        <section className="customer-archive-form-section"><h4>3、护理周期</h4><Radio.Group className="customer-archive-radio-grid" value={consultationForm.careCycle} onChange={event => setConsultationForm(current => ({ ...current, careCycle: event.target.value }))} options={['1个月', '2周', '1周', '无周期', '未做过', '其他'].map(value => ({ value, label: value }))} /></section>
+        <section className="customer-archive-form-section"><h4>4、护肤品</h4><Checkbox.Group className="customer-archive-option-group customer-archive-option-grid-5" value={consultationForm.products} options={consultationProducts} onChange={values => setConsultationForm(current => ({ ...current, products: values as string[] }))} /></section>
+        <section className="customer-archive-form-section"><h4>5、工作环境</h4><Checkbox.Group className="customer-archive-option-group customer-archive-option-grid-3" value={consultationForm.workEnvironment} options={consultationWorkEnvironment} onChange={values => setConsultationForm(current => ({ ...current, workEnvironment: values as string[] }))} /></section>
+      </div> : <div className="customer-archive-form">
+        <section className="customer-archive-form-section"><h4>1、皮肤类型</h4><Radio.Group className="customer-archive-radio-grid customer-archive-radio-grid-3" value={skinTypeForm.skinType} onChange={event => setSkinTypeForm(current => ({ ...current, skinType: event.target.value }))} options={['干性', '混合偏干', '中性', '油性', '混合偏油'].map(value => ({ value, label: value }))} /></section>
+        <section className="customer-archive-form-section"><h4>2、皮肤健康度 - 敏感表现</h4><Radio.Group className="customer-archive-radio-grid customer-archive-radio-grid-3" value={skinTypeForm.sensitivity} onChange={event => setSkinTypeForm(current => ({ ...current, sensitivity: event.target.value }))} options={['完全稳定', '角质层偏薄，但不敏感', '偶尔有过敏表现', '经常反复过敏', '面部有红血丝，易潮红'].map(value => ({ value, label: value }))} /></section>
+        <section className="customer-archive-form-section"><h4>3、如果敏感，请再次详细说明敏感表现以及处理的经历</h4><Input.TextArea value={skinTypeForm.sensitivityDetail} onChange={event => setSkinTypeForm(current => ({ ...current, sensitivityDetail: event.target.value }))} placeholder="请输入内容" rows={5} /></section>
+        <section className="customer-archive-form-section"><h4>4、皮肤健康度 - 痤疮症状</h4><Radio.Group className="customer-archive-radio-grid customer-archive-radio-grid-2" value={skinTypeForm.acne} onChange={event => setSkinTypeForm(current => ({ ...current, acne: event.target.value }))} options={['完全不长痘', '闭口粉刺，几乎无炎性痘', '闭口粉刺，混合大量炎性痘', '少量闭口粉刺，炎性痘为主', '炎性痘疤混合大量结节、囊肿'].map(value => ({ value, label: value }))} /></section>
+        <section className="customer-archive-form-section"><h4>5、如果长痘，请再次详细说明长痘的经历以及处理的过程</h4><Input.TextArea value={skinTypeForm.acneDetail} onChange={event => setSkinTypeForm(current => ({ ...current, acneDetail: event.target.value }))} placeholder="请输入内容" rows={5} /></section>
+      </div>}
+    </Modal>
+    <Modal className="customer-archive-qr-modal" title="填写二维码" open={qrModalOpen} onCancel={() => setQrModalOpen(false)} footer={null} width={420} destroyOnHidden><div className="customer-archive-qr"><div className="customer-archive-qr-frame"><CustomerArchiveQr matrix={qrMatrix} /></div><p>请让顾客扫码填写档案信息</p><Button type="primary" icon={<DownloadOutlined />} onClick={downloadQr}>保存图片</Button></div></Modal>
   </div>
 }
 
@@ -1192,7 +1341,7 @@ function CustomerDetailDrawer({ customer, loading, error, onRetry, onClose, onAc
       { key: 'records', label: '顾客记录', children: <CustomerRecordsTab customer={customer} storageRows={storageRows} /> },
       { key: 'data', label: '客户数据', children: <CustomerDataTab customer={customer} /> },
       { key: 'logs', label: '服务日志/回访', children: <CustomerLogsTab customer={customer} /> },
-      { key: 'archive', label: '顾客档案', children: <CustomerArchivesTab /> },
+      { key: 'archive', label: '顾客档案', children: <CustomerArchivesTab customer={customer} /> },
       { key: 'partner', label: '合伙人信息', children: <CustomerPartnerTab /> },
       { key: 'album', label: '顾客相册', children: <CustomerAlbumTab /> },
     ]} /></section></div>}

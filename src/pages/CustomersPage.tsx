@@ -797,6 +797,7 @@ type CustomerArchiveFormData = ConsultationArchiveForm | SkinTypeArchiveForm
 interface CustomerAlbumImage extends EmptyRow {
   name: string
   url: string
+  createdAt: string
 }
 
 interface CustomerAttachment {
@@ -1274,18 +1275,58 @@ function CustomerPartnerTab() {
   return <div className="customer-partner-tab">商户是未完成合伙人基础配置 请去营销-合伙人-合伙人设置-规则设置配置</div>
 }
 
-function CustomerAlbumTab() {
+function CustomerAlbumTab({ customer }: { customer?: CustomerRecord }) {
   const { message } = App.useApp()
   const [images, setImages] = useState<CustomerAlbumImage[]>([])
+  const [albumModalOpen, setAlbumModalOpen] = useState(false)
+  const [draftImages, setDraftImages] = useState<CustomerAlbumImage[]>([])
+  const [keyword, setKeyword] = useState('')
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(10)
+  useEffect(() => {
+    setImages([])
+    setAlbumModalOpen(false)
+    setDraftImages([])
+    setKeyword('')
+    setPage(1)
+  }, [customer?.id])
   const readImage = (file: File) => {
-    if (!['image/png', 'image/jpeg', 'image/jpg'].includes(file.type)) { void message.error('仅支持 png、jpg、jpeg 格式的图片'); return }
+    const extension = file.name.split('.').pop()?.toLowerCase()
+    if (!['png', 'jpg', 'jpeg'].includes(extension ?? '') || !['image/png', 'image/jpeg', 'image/jpg'].includes(file.type)) { void message.error('仅支持 png、jpg、Jpeg 格式的图片'); return }
     if (file.size > 10 * 1024 * 1024) { void message.error('图片不能超过10M'); return }
     const reader = new FileReader()
-    reader.onload = () => setImages(current => [...current, { id: `${Date.now()}-${file.name}`, name: file.name, url: String(reader.result ?? '') }])
+    reader.onload = () => setDraftImages(current => [...current, { id: `${Date.now()}-${Math.random()}-${file.name}`, name: file.name, url: String(reader.result ?? ''), createdAt: dayjs().format('YYYY-MM-DD HH:mm:ss') }])
+    reader.onerror = () => { void message.error('图片读取失败，请重新选择') }
     reader.readAsDataURL(file)
   }
-  const uploadButton = <Upload accept=".png,.jpg,.jpeg" multiple showUploadList={false} beforeUpload={file => { readImage(file as File); return false }}><Button type="primary">上传顾客相册</Button></Upload>
-  return <div className="customer-album-tab">{images.length === 0 ? <div className="customer-detail-empty"><GoalEmpty /><span>暂无相关数据</span>{uploadButton}</div> : <><div className="customer-album-toolbar">{uploadButton}</div><Image.PreviewGroup><div className="customer-album-grid">{images.map(image => <div className="customer-album-item" key={image.id}><Image src={image.url} alt={image.name} /><span>{image.name}</span></div>)}</div></Image.PreviewGroup></>}</div>
+  const openUploadModal = () => { setDraftImages([]); setAlbumModalOpen(true) }
+  const closeUploadModal = () => { setAlbumModalOpen(false); setDraftImages([]) }
+  const saveAlbum = () => {
+    if (draftImages.length === 0) { void message.error('请先上传顾客相册图片'); return }
+    setImages(current => [...draftImages, ...current])
+    setPage(1)
+    closeUploadModal()
+    void message.success('添加成功')
+  }
+  const removeDraftImage = (id: string | number) => setDraftImages(current => current.filter(image => image.id !== id))
+  const visibleImages = useMemo(() => {
+    const normalizedKeyword = keyword.trim().toLowerCase()
+    return images.filter(image => !normalizedKeyword || image.name.toLowerCase().includes(normalizedKeyword))
+  }, [images, keyword])
+  const pagedImages = useMemo(() => {
+    const start = (page - 1) * pageSize
+    return visibleImages.slice(start, start + pageSize)
+  }, [page, pageSize, visibleImages])
+  useEffect(() => {
+    const lastPage = Math.max(1, Math.ceil(visibleImages.length / pageSize))
+    if (page > lastPage) setPage(lastPage)
+  }, [page, pageSize, visibleImages.length])
+  const uploadButton = <Button type="primary" onClick={openUploadModal}>上传顾客相册</Button>
+  const uploadTile = <Upload accept=".png,.jpg,.jpeg" multiple showUploadList={false} beforeUpload={file => { readImage(file as File); return false }}><button type="button" className="customer-album-upload-tile"><UploadOutlined /><span>上传图片</span></button></Upload>
+  const modalFooter = <div className="customer-album-modal-footer"><span>上传png、jpg、Jpeg格式的图片，每张不超过10M</span><Space><Button onClick={closeUploadModal}>取消</Button><Button type="primary" onClick={saveAlbum}>保存</Button></Space></div>
+  return <div className="customer-album-tab">{images.length === 0 ? <div className="customer-detail-empty customer-album-empty"><GoalEmpty /><span>暂无相关数据</span><Button type="primary" onClick={openUploadModal}>上传顾客相册</Button></div> : <div className="customer-album-content"><div className="customer-album-toolbar"><Input.Search className="customer-album-search" aria-label="搜索顾客相册" placeholder="输入相册关键词" allowClear value={keyword} onChange={event => { setKeyword(event.target.value); setPage(1) }} onSearch={() => setPage(1)} />{uploadButton}</div><Image.PreviewGroup><div className="customer-album-grid">{pagedImages.map(image => <div className="customer-album-item" key={image.id}><Image src={image.url} alt={image.name} /><div className="customer-album-meta"><span title={image.name}>{image.name}</span><small>{image.createdAt}</small></div></div>)}{pagedImages.length === 0 && <div className="customer-album-search-empty"><GoalEmpty /><span>暂无相关数据</span></div>}</div></Image.PreviewGroup><div className="customer-album-pagination"><Pagination current={page} pageSize={pageSize} total={visibleImages.length} showSizeChanger pageSizeOptions={['10', '20', '50']} onChange={(nextPage, nextPageSize) => { setPage(nextPage); setPageSize(nextPageSize) }} /></div></div>}
+    <Modal className="customer-album-modal" title="添加顾客相册" open={albumModalOpen} onCancel={closeUploadModal} footer={modalFooter} width={650} destroyOnHidden><div className="customer-album-upload-list"><div className="customer-album-upload-picker">{uploadTile}</div>{draftImages.map(image => <div className="customer-album-upload-preview" key={image.id}><img src={image.url} alt={image.name} /><div><span title={image.name}>{image.name}</span><Button type="text" danger size="small" icon={<DeleteOutlined />} aria-label={`移除${image.name}`} onClick={() => removeDraftImage(image.id)} /></div></div>)}</div></Modal>
+  </div>
 }
 
 function CustomerDetailDrawer({ customer, loading, error, onRetry, onClose, onAction, storageRows = [], storageLoading = false, storageError, onStorageRetry, onClaim }: { customer?: CustomerRecord; loading?: boolean; error?: string; onRetry?: () => void; onClose: () => void; onAction?: (action: string, customer: CustomerRecord) => void; storageRows?: StoredApiRecord[]; storageLoading?: boolean; storageError?: string; onStorageRetry?: () => void; onClaim?: (row: StoredApiRecord) => void }) {
@@ -1343,7 +1384,7 @@ function CustomerDetailDrawer({ customer, loading, error, onRetry, onClose, onAc
       { key: 'logs', label: '服务日志/回访', children: <CustomerLogsTab customer={customer} /> },
       { key: 'archive', label: '顾客档案', children: <CustomerArchivesTab customer={customer} /> },
       { key: 'partner', label: '合伙人信息', children: <CustomerPartnerTab /> },
-      { key: 'album', label: '顾客相册', children: <CustomerAlbumTab /> },
+      { key: 'album', label: '顾客相册', children: <CustomerAlbumTab customer={customer} /> },
     ]} /></section></div>}
   </Drawer>
 }

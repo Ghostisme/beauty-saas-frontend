@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import dayjs, { type Dayjs } from 'dayjs'
-import { App, Button, Checkbox, DatePicker, Descriptions, Drawer, Dropdown, Image, Input, InputNumber, Modal, Pagination, Result, Select, Space, Spin, Switch, Table, Tabs, Upload } from 'antd'
+import { App, Button, Checkbox, DatePicker, Descriptions, Drawer, Dropdown, Image, Input, InputNumber, Modal, Pagination, Radio, Result, Select, Space, Spin, Switch, Table, Tabs, Upload } from 'antd'
 import type { MenuProps, TableColumnsType } from 'antd'
 import { ArrowLeftOutlined, CheckOutlined, DeleteOutlined, DownloadOutlined, DownOutlined, EyeOutlined, PlusOutlined, QuestionCircleOutlined, SearchOutlined, UploadOutlined } from '@ant-design/icons'
 import { useNavigate, useSearchParams } from 'react-router-dom'
@@ -754,6 +754,13 @@ interface CustomerLogRow extends EmptyRow {
   imageUrl?: string
 }
 
+interface CustomerFollowupTaskRow extends EmptyRow {
+  dueDate: string
+  employee: string
+  script: string
+  status: string
+}
+
 interface CustomerArchiveRecord extends EmptyRow {
   content: string
   operator: string
@@ -960,13 +967,20 @@ function CustomerDataTab({ customer }: { customer: CustomerRecord }) {
   </div>
 }
 
-function CustomerLogsTab() {
+function CustomerLogsTab({ customer }: { customer?: CustomerRecord }) {
   const { message } = App.useApp()
-  const [activeTab, setActiveTab] = useState<'all' | 'followup' | 'log'>('all')
+  type LogTabKey = 'all' | 'followup' | 'log'
+  type TaskDateMode = 'fixed' | 'specified'
+  type TaskEmployeeMode = 'adviser' | 'tracker' | 'specified'
+  type TaskScriptMode = 'fixed' | 'custom'
+  const [activeTab, setActiveTab] = useState<LogTabKey>('all')
   const [dateRange, setDateRange] = useState<[Dayjs, Dayjs]>()
+  const [followupStatus, setFollowupStatus] = useState('待回访')
   const [rows, setRows] = useState<CustomerLogRow[]>([])
+  const [taskRows, setTaskRows] = useState<CustomerFollowupTaskRow[]>([])
   const [logModalOpen, setLogModalOpen] = useState(false)
   const [followupModalOpen, setFollowupModalOpen] = useState(false)
+  const [taskModalOpen, setTaskModalOpen] = useState(false)
   const [logContent, setLogContent] = useState('')
   const [logTime, setLogTime] = useState<Dayjs>(dayjs())
   const [logImage, setLogImage] = useState<CustomerAttachment>()
@@ -974,7 +988,18 @@ function CustomerLogsTab() {
   const [followupContent, setFollowupContent] = useState('')
   const [followupTime, setFollowupTime] = useState<Dayjs>(dayjs())
   const [followupImage, setFollowupImage] = useState<CustomerAttachment>()
+  const [taskDateMode, setTaskDateMode] = useState<TaskDateMode>('fixed')
+  const [taskDays, setTaskDays] = useState(15)
+  const [taskDate, setTaskDate] = useState<Dayjs>()
+  const [taskEmployeeMode, setTaskEmployeeMode] = useState<TaskEmployeeMode>('adviser')
+  const [taskEmployee, setTaskEmployee] = useState('')
+  const [taskScriptMode, setTaskScriptMode] = useState<TaskScriptMode>('fixed')
+  const [taskScript, setTaskScript] = useState('')
   const tabs = [{ key: 'all', label: '全部' }, { key: 'followup', label: '回访/客勤' }, { key: 'log', label: '服务日志' }] as const
+  const employeeOptions = useMemo(() => {
+    const names = [customer?.adviser, customer?.tracker, ...followupAssignees.filter(item => !item.key.startsWith('unassigned')).map(item => item.label)].filter((item): item is string => Boolean(item))
+    return [...new Set(names)].map(value => ({ value, label: value }))
+  }, [customer?.adviser, customer?.tracker])
   const readImage = (file: File, setImage: (value: CustomerAttachment | undefined) => void) => {
     if (!['image/png', 'image/jpeg', 'image/jpg'].includes(file.type)) { void message.error('仅支持 png、jpg、jpeg 格式的图片'); return }
     if (file.size > 10 * 1024 * 1024) { void message.error('图片不能超过10M'); return }
@@ -984,6 +1009,17 @@ function CustomerLogsTab() {
   }
   const resetLogForm = () => { setLogContent(''); setLogTime(dayjs()); setLogImage(undefined) }
   const resetFollowupForm = () => { setFollowupEmployee(''); setFollowupContent(''); setFollowupTime(dayjs()); setFollowupImage(undefined) }
+  const resetTaskForm = () => { setTaskDateMode('fixed'); setTaskDays(15); setTaskDate(undefined); setTaskEmployeeMode('adviser'); setTaskEmployee(''); setTaskScriptMode('fixed'); setTaskScript('') }
+  useEffect(() => {
+    setActiveTab('all')
+    setDateRange(undefined)
+    setFollowupStatus('待回访')
+    setRows([])
+    setTaskRows([])
+    resetLogForm()
+    resetFollowupForm()
+    resetTaskForm()
+  }, [customer?.id])
   const submitLog = () => {
     if (!logContent.trim()) { void message.error('请输入日志内容'); return }
     setRows(current => [{ id: Date.now(), kind: '日志', content: logContent.trim(), operator: '负责人', recordTime: logTime.format('YYYY-MM-DD HH:mm'), imageName: logImage?.name, imageUrl: logImage?.url }, ...current])
@@ -995,19 +1031,60 @@ function CustomerLogsTab() {
     setRows(current => [{ id: Date.now(), kind: '回访', content: followupContent.trim(), operator: followupEmployee.trim(), recordTime: followupTime.format('YYYY-MM-DD HH:mm'), imageName: followupImage?.name, imageUrl: followupImage?.url }, ...current])
     setFollowupModalOpen(false); resetFollowupForm(); void message.success('回访记录已添加')
   }
+  const taskEmployeeName = taskEmployeeMode === 'adviser' ? customer?.adviser || '顾客专属顾问' : taskEmployeeMode === 'tracker' ? customer?.tracker || '顾客跟踪员工' : taskEmployee.trim()
+  const submitTask = () => {
+    if (taskDateMode === 'fixed' && (!taskDays || taskDays < 1)) { void message.error('请输入计划回访天数'); return }
+    if (taskDateMode === 'specified' && !taskDate) { void message.error('请选择计划回访日期'); return }
+    if (taskEmployeeMode === 'adviser' && !customer?.adviser) { void message.error('顾客未设置专属顾问，无法生成待回访任务'); return }
+    if (taskEmployeeMode === 'tracker' && !customer?.tracker) { void message.error('顾客未设置跟踪员工，无法生成待回访任务'); return }
+    if (taskEmployeeMode === 'specified' && !taskEmployee.trim()) { void message.error('请选择回访员工'); return }
+    if (!taskScript.trim()) { void message.error('请输入回访话术'); return }
+    const dueDate = taskDateMode === 'fixed' ? dayjs().add(taskDays, 'day').format('YYYY-MM-DD') : taskDate?.format('YYYY-MM-DD') ?? ''
+    setTaskRows(current => [{ id: Date.now(), dueDate, employee: taskEmployeeName, script: taskScript.trim(), status: '待回访' }, ...current])
+    setTaskModalOpen(false); resetTaskForm(); void message.success('回访任务已创建')
+  }
+  const inDateRange = (value: string) => {
+    if (!dateRange) return true
+    const current = dayjs(value)
+    return current.isValid() && current.isAfter(dateRange[0].startOf('day').subtract(1, 'ms')) && current.isBefore(dateRange[1].endOf('day').add(1, 'ms'))
+  }
   const visibleRows = rows.filter(row => {
     const inType = activeTab === 'all' || (activeTab === 'log' ? row.kind === '日志' : row.kind === '回访')
-    const current = dayjs(row.recordTime)
-    const inRange = !dateRange || (current.isAfter(dateRange[0].startOf('day').subtract(1, 'ms')) && current.isBefore(dateRange[1].endOf('day').add(1, 'ms')))
-    return inType && inRange
+    return inType && inDateRange(row.recordTime)
   })
-  const columns: TableColumnsType<CustomerLogRow> = [{ title: '类型', dataIndex: 'kind', key: 'kind', width: 100 }, { title: '内容', dataIndex: 'content', key: 'content', ellipsis: true }, { title: '记录人', dataIndex: 'operator', key: 'operator', width: 140 }, { title: '记录时间', dataIndex: 'recordTime', key: 'recordTime', width: 170 }, { title: '图片', key: 'image', width: 120, render: (_, row) => row.imageUrl ? <Image width={36} height={36} src={row.imageUrl} alt={row.imageName ?? '附件'} /> : '—' }]
+  const visibleTaskRows = taskRows.filter(row => inDateRange(row.dueDate) && (activeTab !== 'followup' || row.status === followupStatus))
+  const logColumns: TableColumnsType<CustomerLogRow> = [{ title: '类型', dataIndex: 'kind', key: 'kind', width: 100 }, { title: '内容', dataIndex: 'content', key: 'content', ellipsis: true }, { title: '记录人', dataIndex: 'operator', key: 'operator', width: 140 }, { title: '记录时间', dataIndex: 'recordTime', key: 'recordTime', width: 170 }, { title: '图片', key: 'image', width: 120, render: (_, row) => row.imageUrl ? <Image width={36} height={36} src={row.imageUrl} alt={row.imageName ?? '附件'} /> : '—' }]
+  const taskColumns: TableColumnsType<CustomerFollowupTaskRow> = [{ title: '计划回访日期', dataIndex: 'dueDate', key: 'dueDate', width: 160 }, { title: '回访员工', dataIndex: 'employee', key: 'employee', width: 190 }, { title: '回访话术', dataIndex: 'script', key: 'script', ellipsis: true }, { title: '状态', dataIndex: 'status', key: 'status', width: 120 }, { title: '操作', key: 'actions', width: 90, render: (_, row) => <Button type="link" size="small" danger onClick={() => setTaskRows(current => current.filter(item => item.id !== row.id))}>删除</Button> }]
   const uploadControl = (attachment: CustomerAttachment | undefined, setAttachment: (value: CustomerAttachment | undefined) => void) => <Upload accept=".png,.jpg,.jpeg" showUploadList={false} beforeUpload={file => { readImage(file as File, setAttachment); return false }}><button type="button" className="customer-log-upload"><UploadOutlined /><span>{attachment?.name ?? '上传图片'}</span></button></Upload>
+  const dateFilter = <DatePicker.RangePicker aria-label="服务日志日期范围" value={dateRange} onChange={dates => setDateRange(dates?.[0] && dates[1] ? [dates[0], dates[1]] : undefined)} placeholder={['开始日期', '结束日期']} inputReadOnly />
+  const hasVisibleRows = visibleRows.length > 0 || (activeTab !== 'log' && visibleTaskRows.length > 0)
   return <div className="customer-logs-tab">
-    <div className="customer-log-toolbar"><div className="customer-inner-tabs">{tabs.map(tab => <button type="button" key={tab.key} className={activeTab === tab.key ? 'is-active' : ''} onClick={() => setActiveTab(tab.key)}>{tab.label}</button>)}</div><Space wrap><Button type="primary" onClick={() => setLogModalOpen(true)}>添加顾客日志</Button><Button type="primary" onClick={() => setFollowupModalOpen(true)}>添加回访记录</Button><DatePicker.RangePicker aria-label="服务日志日期范围" value={dateRange} onChange={dates => setDateRange(dates?.[0] && dates[1] ? [dates[0], dates[1]] : undefined)} placeholder={['开始日期', '结束日期']} inputReadOnly /></Space></div>
-    {visibleRows.length === 0 ? <div className="customer-detail-empty customer-log-empty"><GoalEmpty /><span>暂无相关数据</span></div> : <Table<CustomerLogRow> rowKey="id" pagination={false} dataSource={visibleRows} columns={columns} />}
-    <Modal title="添加顾客日志" open={logModalOpen} onCancel={() => { setLogModalOpen(false); resetLogForm() }} onOk={submitLog} okText="确定" cancelText="取消" destroyOnHidden><div className="customer-log-form"><label>添加人员<Input value="负责人" disabled /></label><label className="required">日志内容<Input.TextArea value={logContent} onChange={event => setLogContent(event.target.value)} placeholder="输入日志" maxLength={1000} showCount rows={5} /></label><label>记录时间<DatePicker showTime value={logTime} onChange={value => setLogTime(value ?? dayjs())} style={{ width: '100%' }} /></label><label>上传图片<small>上传png、jpg、jpeg格式的图片，每张不超过10M</small>{uploadControl(logImage, setLogImage)}</label></div></Modal>
-    <Modal title="顾客回访" open={followupModalOpen} onCancel={() => { setFollowupModalOpen(false); resetFollowupForm() }} onOk={submitFollowup} okText="确定" cancelText="取消" destroyOnHidden><div className="customer-log-form"><label className="required">回访员工<Input value={followupEmployee} onChange={event => setFollowupEmployee(event.target.value)} placeholder="请输入回访员工" /></label><label className="required">回访备注<div className="customer-log-template-links"><button type="button" onClick={() => setFollowupContent('')}>编辑</button><button type="button" onClick={() => setFollowupContent(current => current || '您好，感谢您的支持，欢迎再次到店。')}>添加话术模板</button></div><Input.TextArea value={followupContent} onChange={event => setFollowupContent(event.target.value)} placeholder="请输入备注" maxLength={500} showCount rows={5} /></label><label>记录时间<DatePicker showTime value={followupTime} onChange={value => setFollowupTime(value ?? dayjs())} style={{ width: '100%' }} /></label><label>上传图片<small>上传png、jpg、jpeg格式的图片，每张不超过10M</small>{uploadControl(followupImage, setFollowupImage)}</label></div></Modal>
+    <div className="customer-log-toolbar">
+      <div className="customer-inner-tabs" role="tablist" aria-label="顾客日志回访分类">{tabs.map(tab => <button type="button" role="tab" aria-selected={activeTab === tab.key} key={tab.key} className={activeTab === tab.key ? 'is-active' : ''} onClick={() => setActiveTab(tab.key)}>{tab.label}</button>)}</div>
+      <div className="customer-log-actions">
+        <div className="customer-log-action-row">
+          {activeTab !== 'log' && <Button className="customer-followup-task-button" type="primary" onClick={() => { resetTaskForm(); setTaskModalOpen(true) }}>创建回访任务</Button>}
+          {activeTab !== 'log' && <Button type="primary" onClick={() => { resetFollowupForm(); setFollowupModalOpen(true) }}>添加回访记录</Button>}
+          {activeTab !== 'followup' && <Button type="primary" onClick={() => { resetLogForm(); setLogModalOpen(true) }}>添加顾客日志</Button>}
+        </div>
+        <div className="customer-log-filters">{dateFilter}{activeTab === 'followup' && <Select aria-label="回访任务状态" value={followupStatus} onChange={setFollowupStatus} options={[{ value: '待回访', label: '待回访' }, { value: '已完成', label: '已完成' }, { value: '已取消', label: '已取消' }]} />}</div>
+      </div>
+    </div>
+    {!hasVisibleRows && <div className="customer-detail-empty customer-log-empty"><GoalEmpty /><span>暂无相关数据</span></div>}
+    {activeTab !== 'log' && visibleTaskRows.length > 0 && <div className="customer-log-section"><Table<CustomerFollowupTaskRow> rowKey="id" pagination={false} dataSource={visibleTaskRows} columns={taskColumns} scroll={{ x: 760 }} /></div>}
+    {visibleRows.length > 0 && <div className="customer-log-section"><Table<CustomerLogRow> rowKey="id" pagination={false} dataSource={visibleRows} columns={logColumns} scroll={{ x: 760 }} /></div>}
+    <Modal className="customer-followup-task-modal" title="创建待回访任务" open={taskModalOpen} onCancel={() => { setTaskModalOpen(false); resetTaskForm() }} onOk={submitTask} okText="确认" cancelText="取消" width={760} destroyOnHidden>
+      <div className="customer-followup-task-form">
+        <label className="required"><span>计划回访日期</span><Radio.Group value={taskDateMode} onChange={event => setTaskDateMode(event.target.value as TaskDateMode)}><Radio value="fixed">固定周期</Radio><Radio value="specified">指定日期</Radio></Radio.Group></label>
+        <div className="customer-task-date-control">{taskDateMode === 'fixed' ? <><span>计划回访日期为</span><InputNumber aria-label="计划回访天数" min={1} precision={0} value={taskDays} onChange={value => setTaskDays(value ?? 0)} /><span>天后</span></> : <DatePicker aria-label="计划回访日期" value={taskDate} onChange={value => setTaskDate(value ?? undefined)} placeholder="请选择日期" />}</div>
+        <label className="required"><span>回访员工</span><Radio.Group value={taskEmployeeMode} onChange={event => setTaskEmployeeMode(event.target.value as TaskEmployeeMode)}><Radio value="adviser">顾客专属顾问</Radio><Radio value="tracker">顾客跟踪员工</Radio><Radio value="specified">指定员工</Radio></Radio.Group></label>
+        {taskEmployeeMode === 'specified' && <Select aria-label="指定回访员工" value={taskEmployee || undefined} onChange={setTaskEmployee} placeholder="请选择员工" options={employeeOptions} />}
+        <div className="customer-task-hint">温馨提示：1. 顾客有多个跟踪员工/专属顾问，默认选择设置的第一个员工生成待回访任务<br />　　　　2. 顾客未设置跟踪员工/专属顾问，不会生成待回访任务</div>
+        <label className="required"><span>回访话术</span><div className="customer-task-script-heading"><Radio.Group value={taskScriptMode} onChange={event => setTaskScriptMode(event.target.value as TaskScriptMode)}><Radio value="fixed">固定话术</Radio><Radio value="custom">单独设定</Radio></Radio.Group><Button size="small" onClick={() => setTaskScript(current => current || '您好，感谢您的支持，欢迎再次到店。')}>话术模板</Button></div><Input.TextArea aria-label="回访话术" value={taskScript} onChange={event => setTaskScript(event.target.value)} placeholder="请输入提醒信息" maxLength={500} showCount rows={4} /></label>
+      </div>
+    </Modal>
+    <Modal className="customer-log-modal" title="添加顾客日志" open={logModalOpen} onCancel={() => { setLogModalOpen(false); resetLogForm() }} onOk={submitLog} okText="确定" cancelText="取消" width={620} destroyOnHidden><div className="customer-log-form"><label>添加人员<Input value="负责人" disabled /></label><label className="required">日志内容<Input.TextArea value={logContent} onChange={event => setLogContent(event.target.value)} placeholder="输入日志" maxLength={1000} showCount rows={5} /></label><label>记录时间<DatePicker showTime value={logTime} onChange={value => setLogTime(value ?? dayjs())} style={{ width: '100%' }} /></label><label>上传图片<small>上传png、jpg、jpeg格式的图片，每张不超过10M</small>{uploadControl(logImage, setLogImage)}</label></div></Modal>
+    <Modal className="customer-followup-modal" title="顾客回访" open={followupModalOpen} onCancel={() => { setFollowupModalOpen(false); resetFollowupForm() }} onOk={submitFollowup} okText="确定" cancelText="取消" width={620} destroyOnHidden><div className="customer-log-form"><label className="required">回访员工<Input value={followupEmployee} onChange={event => setFollowupEmployee(event.target.value)} placeholder="请指定员工" /></label><label className="required">回访备注<div className="customer-log-template-links"><button type="button" onClick={() => setFollowupContent('')}>编辑</button><button type="button" onClick={() => setFollowupContent(current => current || '您好，感谢您的支持，欢迎再次到店。')}>添加话术模板</button></div><Input.TextArea value={followupContent} onChange={event => setFollowupContent(event.target.value)} placeholder="请输入备注" maxLength={500} showCount rows={5} /></label><label>记录时间<DatePicker showTime value={followupTime} onChange={value => setFollowupTime(value ?? dayjs())} style={{ width: '100%' }} /></label><label>上传图片<small>上传png、jpg、jpeg格式的图片，每张不超过10M</small>{uploadControl(followupImage, setFollowupImage)}</label></div></Modal>
   </div>
 }
 
@@ -1114,7 +1191,7 @@ function CustomerDetailDrawer({ customer, loading, error, onRetry, onClose, onAc
       { key: 'profile', label: '会员资料', children: <CustomerProfileTab customer={customer} onEdit={() => onAction?.('资料', customer)} /> },
       { key: 'records', label: '顾客记录', children: <CustomerRecordsTab customer={customer} storageRows={storageRows} /> },
       { key: 'data', label: '客户数据', children: <CustomerDataTab customer={customer} /> },
-      { key: 'logs', label: '服务日志/回访', children: <CustomerLogsTab /> },
+      { key: 'logs', label: '服务日志/回访', children: <CustomerLogsTab customer={customer} /> },
       { key: 'archive', label: '顾客档案', children: <CustomerArchivesTab /> },
       { key: 'partner', label: '合伙人信息', children: <CustomerPartnerTab /> },
       { key: 'album', label: '顾客相册', children: <CustomerAlbumTab /> },

@@ -1,0 +1,30 @@
+.staff-points { min-width: 0; }
+.staff-points-toolbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 18px; }
+.staff-points-toolbar .ant-picker-range { width: 230px; max-width: 100%; }
+.staff-points-toolbar .ant-select { width: 180px; max-width: 100%; }
+.staff-points-toolbar .staff-points-rule-select { width: 245px; }
+.staff-points-toolbar .staff-points-status-select { width: 110px; }
+.staff-points-toolbar > .ant-btn { margin-left: auto; }
+.staff-points-summary { margin: -4px 0 14px; color: var(--text-tertiary); font-size: 12px; line-height: 1.6; }
+.staff-points-empty { display: flex; min-height: 330px; flex-direction: column; align-items: center; justify-content: center; gap: 10px; color: var(--text-tertiary); font-size: 12px; }
+.staff-points-empty .goal-illustration { width: 170px; height: auto; }
+.staff-points-table .ant-table-cell { overflow-wrap: anywhere; }
+.staff-points-user { display: flex; flex-direction: column; gap: 4px; min-width: 110px; }
+.staff-points-user strong { font-weight: 500; }
+.staff-points-user span, .staff-points-muted { color: var(--text-tertiary); font-size: 12px; }
+.staff-points-number { font-variant-numeric: tabular-nums; font-weight: 600; }
+.staff-points-number.is-add { color: #52c41a; }
+.staff-points-number.is-deduct { color: #ff4d4f; }
+.staff-points-modal .ant-modal { max-width: calc(100vw - 28px); }
+.staff-points-modal .ant-modal-body { max-height: min(calc(100dvh - 240px), 610px); overflow-y: auto; }
+.staff-points-modal-fields { display: flex; flex-direction: column; gap: 18px; }
+.staff-points-modal-field { display: flex; flex-direction: column; gap: 8px; color: var(--text-secondary); font-size: 13px; }
+.staff-points-modal-field > .ant-select, .staff-points-modal-field > .ant-input-number, .staff-points-modal-field > .ant-input, .staff-points-modal-field > .ant-input-affix-wrapper { width: 100%; }
+.staff-points-modal-field > label::before { margin-right: 4px; color: #ff4d4f; content: '*'; }
+.staff-points-modal-hint { margin: -2px 0 0; color: var(--text-tertiary); font-size: 12px; line-height: 1.6; }
+@media (max-width: 767px) {
+  .staff-points-toolbar { gap: 10px; }
+  .staff-points-toolbar .ant-picker-range, .staff-points-toolbar .ant-select, .staff-points-toolbar .staff-points-rule-select { width: 100%; }
+  .staff-points-toolbar > .ant-btn { margin-left: auto; min-height: 40px; }
+  .staff-points-modal .ant-modal-body { max-height: calc(100dvh - 200px); }
+}

@@ -38,5 +38,5 @@ export interface CostAdjustmentLine { itemId: number; itemCode: string; itemName
 export interface InventorySettings { preventOrderOnShortage: boolean; transferAutoConfirmEnabled: boolean; transferAutoConfirmDays: number; stockAlertEnabled: boolean; stockAlertValue: number; expiryAlertEnabled: boolean; expiryAlertMonths: number; salesDeductInventory: boolean; deleteProductSyncInventory: boolean; version: number }
 export type CommissionKind = 'PROJECT' | 'PRODUCT' | 'CARD' | 'STEP'
 export interface CommissionRule { id?: number; itemId?: number; itemCode?: string; itemName?: string; minAmount: number; maxAmount?: number; basis: 'PERCENT' | 'AMOUNT'; rate: number; fixedAmount: number; sortOrder: number }
-export interface CommissionScheme { id: number; tenantId: number; kind: CommissionKind; name: string; basis: 'PERCENT' | 'AMOUNT'; rate: number; fixedAmount: number; description?: string; status: number; version: number; rules: CommissionRule[]; createTime: string; updateTime: string }
+export interface CommissionScheme { id: number; tenantId: number; kind: CommissionKind; name: string; basis: 'PERCENT' | 'AMOUNT'; rate: number; fixedAmount: number; description?: string; status: number; version: number; rules: CommissionRule[]; configJson?: string; createTime: string; updateTime: string }
 export type CatalogPage<T> = PageResult<T>

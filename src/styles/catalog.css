@@ -287,3 +287,105 @@
   .cost-adjustment-fields .ant-select, .cost-adjustment-fields .ant-input { width: 100%; }
   .cost-adjustment-remark { align-items: stretch; flex-direction: column; }
 }
+
+/* Project commission enhancement editor/list styles. Existing hover and click actions are intentionally preserved. */
+.project-commission-panel { gap: 18px; }
+.project-commission-tabs-row { align-items: flex-end; }
+.project-commission-tabs-row > .ant-tabs { min-width: 360px; }
+.project-commission-list-actions { align-items: center; justify-content: flex-end; }
+.project-commission-list-actions .ant-input-search { width: min(280px, 100%); }
+.project-primary-button { min-width: 132px; border-radius: 18px; }
+.project-commission-empty { display: flex; min-height: 430px; flex-direction: column; align-items: center; justify-content: center; gap: 12px; border: 1px dashed var(--border); border-radius: 10px; background: color-mix(in srgb, var(--page-bg) 45%, var(--surface)); }
+.project-empty-add-button { min-width: 210px; border-radius: 18px; }
+.project-scheme-name { display: flex; min-width: 0; flex-direction: column; gap: 4px; }
+.project-scheme-name strong { overflow: hidden; color: var(--text); font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.project-scheme-name span { color: var(--text-tertiary); font-size: 11px; }
+.project-commission-editor-shell { gap: 18px; padding-top: 12px; }
+.project-commission-editor-heading { display: flex; align-items: center; gap: 12px; padding-bottom: 2px; }
+.project-commission-editor-heading h2 { margin: 0; color: var(--text); font-size: 20px; font-weight: 600; }
+.project-commission-editor-card, .project-commission-rules-section { padding: 20px 22px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
+.project-commission-form-grid { display: grid; grid-template-columns: minmax(280px, 1fr) minmax(280px, 1fr); gap: 20px 28px; }
+.project-commission-field { display: flex; min-width: 0; flex-direction: column; gap: 8px; color: var(--text-secondary); font-size: 13px; }
+.project-commission-field.required > span::before { margin-right: 4px; color: var(--danger); content: '*'; }
+.project-commission-field > .ant-input, .project-commission-field > .ant-select { width: min(100%, 380px); }
+.project-commission-staff-field { margin-top: 22px; }
+.project-commission-staff-panel { display: flex; min-height: 96px; flex-direction: column; gap: 14px; padding: 14px 16px; border: 1px solid color-mix(in srgb, var(--primary) 14%, var(--border)); border-radius: 8px; background: color-mix(in srgb, var(--primary-bg) 38%, var(--surface)); }
+.project-commission-selected-staff, .project-commission-available-staff { display: flex; align-items: flex-start; gap: 18px; }
+.project-commission-selected-staff > span, .project-commission-available-staff > span { flex: 0 0 56px; color: var(--text-tertiary); font-size: 12px; line-height: 24px; }
+.project-commission-staff-options { display: flex; flex-wrap: wrap; gap: 8px 18px; }
+.project-commission-rules-section { padding-bottom: 14px; }
+.project-commission-section-heading { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 14px; margin-bottom: 14px; color: var(--text-secondary); }
+.project-commission-section-heading strong { color: var(--text); font-size: 15px; }
+.project-commission-section-heading > span:not(.ant-tag) { color: var(--text-tertiary); font-size: 12px; }
+.project-commission-batch-tag { margin-left: auto; border: 0; background: #a936df; color: #fff; cursor: pointer; }
+.project-commission-table-wrap { overflow-x: auto; border: 1px solid #ffd8df; border-radius: 8px; }
+.project-commission-table-wrap .ant-table { min-width: 1600px; }
+.project-commission-table-wrap .ant-table-thead > tr > th { background: var(--surface); color: var(--text); border-color: #ffd8df !important; text-align: center; }
+.project-commission-table-wrap .ant-table-thead > tr:first-child > th { padding-block: 14px; font-size: 13px; }
+.project-commission-table-wrap .ant-table-thead > tr:nth-child(2) > th { padding-block: 10px; color: var(--text-secondary); font-size: 12px; }
+.project-commission-table-wrap .ant-table-tbody > tr > td { height: 58px; padding: 0; border-color: #ffd8df !important; background: var(--surface); }
+.project-commission-table-wrap .ant-table-tbody > tr:hover > td { background: color-mix(in srgb, var(--primary-bg) 24%, var(--surface)); }
+.project-commission-row-label { display: flex; min-height: 58px; align-items: center; gap: 6px; padding: 0 10px; color: var(--text-secondary); }
+.project-commission-row-label.depth-1 { padding-left: 34px; }
+.project-commission-expand { width: 22px; height: 22px; padding: 0; color: var(--text-tertiary); }
+.project-commission-folder { color: #8f8f98; font-size: 16px; line-height: 1; }
+.project-commission-item-dot { color: #a7a7af; font-size: 15px; }
+.project-commission-cell { position: relative; display: flex; min-height: 58px; align-items: center; justify-content: center; padding: 6px 8px; cursor: pointer; transition: background-color .16s ease, box-shadow .16s ease; }
+.project-commission-cell:hover, .project-commission-cell.is-selected { z-index: 1; background: #b13dde !important; color: #fff; box-shadow: inset 0 0 0 1px rgb(255 255 255 / 30%); }
+.project-commission-cell-actions { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; gap: 2px; opacity: 0; pointer-events: none; background: rgb(177 61 222 / 96%); transition: opacity .16s ease; }
+.project-commission-cell-actions.is-visible { opacity: 1; pointer-events: auto; }
+.project-commission-cell-actions .ant-btn { padding-inline: 4px; color: #fff; font-size: 12px; }
+.project-commission-cell-actions .ant-btn:hover { color: #ffe8f0; }
+.project-commission-cell-check { position: absolute; top: 6px; right: 7px; color: #fff; font-size: 13px; }
+.project-commission-empty-cell { color: #b8b8c0; font-size: 12px; }
+.project-commission-setting-summary { display: grid; min-width: 78px; grid-template-columns: auto auto; align-items: center; justify-items: start; gap: 2px 5px; color: var(--text-secondary); font-size: 11px; line-height: 1.2; }
+.project-commission-setting-summary .ant-tag { margin-inline-end: 0; padding-inline: 3px; font-size: 10px; line-height: 16px; }
+.project-commission-customer-label { grid-column: 1 / -1; color: var(--text-tertiary); font-size: 10px; }
+.project-commission-card-count { grid-column: 1 / -1; color: var(--primary); font-size: 10px; }
+.project-commission-editor-footer { display: flex; justify-content: flex-end; gap: 10px; padding-top: 2px; }
+.project-setting-modal-body { display: flex; flex-direction: column; gap: 16px; }
+.project-setting-customer-block { display: grid; grid-template-columns: 46px minmax(0, 1fr); gap: 8px 12px; align-items: center; }
+.project-setting-customer-block > strong { color: var(--text-secondary); font-size: 12px; }
+.project-setting-input-line { display: flex; align-items: center; gap: 6px; }
+.project-setting-input-line .ant-input-number { width: 90px; }
+.project-setting-input-line .ant-select { width: 70px; }
+.project-setting-input-line .ant-tag { min-width: 34px; margin-inline-end: 0; text-align: center; }
+.project-setting-unit-hint { color: var(--text-tertiary); font-size: 12px; }
+.project-setting-sync-row { display: flex; align-items: center; justify-content: space-between; padding-top: 4px; border-top: 1px solid var(--border); color: var(--text-secondary); font-size: 12px; }
+.project-setting-modal-hint { margin: 0; padding: 8px 10px; border-radius: 6px; background: var(--primary-bg); color: var(--text-secondary); font-size: 12px; line-height: 1.6; }
+.project-card-selection-drawer .ant-drawer-body { padding: 16px 24px 24px; background: var(--page-bg); }
+.project-card-selection-drawer .ant-drawer-header { background: var(--surface); }
+.project-drawer-back { cursor: pointer; }
+.project-card-selection-search { max-width: 420px; margin-bottom: 14px; }
+.project-card-selection-summary { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; color: var(--text-secondary); font-size: 13px; }
+.project-card-selection-summary .ant-input-number { width: 86px; }
+.project-card-selection-summary .ant-select { width: 68px; }
+.project-card-bulk-label { margin-left: auto; color: var(--text-tertiary); font-size: 12px; }
+.project-card-rate-input { display: flex; align-items: center; gap: 6px; }
+.project-card-rate-input .ant-input-number { width: 110px; }
+.project-card-rate-input .ant-select { width: 68px; }
+.project-card-rate-input > span { color: var(--text-tertiary); font-size: 12px; }
+.project-card-name { display: flex; flex-direction: column; gap: 2px; }
+.project-card-name strong { color: var(--text); font-weight: 500; }
+.project-card-name span { color: var(--text-tertiary); font-size: 11px; }
+.project-card-selection-drawer .ant-table-wrapper { overflow: hidden; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
+.project-card-selection-drawer .ant-drawer-extra { margin-inline-start: auto; }
+@media (max-width: 767px) {
+  .project-commission-tabs-row > .ant-tabs { min-width: 100%; }
+  .project-commission-list-actions { width: 100%; align-items: stretch; justify-content: stretch; }
+  .project-commission-list-actions > .ant-select, .project-commission-list-actions > .ant-input-search, .project-commission-list-actions > .ant-btn { min-width: 0 !important; width: 100% !important; }
+  .project-commission-empty { min-height: 320px; }
+  .project-commission-form-grid { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+  .project-commission-editor-heading { align-items: flex-start; flex-direction: column; gap: 4px; }
+  .project-commission-editor-heading h2 { font-size: 18px; }
+  .project-commission-editor-card, .project-commission-rules-section { padding: 14px 12px; }
+  .project-commission-selected-staff, .project-commission-available-staff { align-items: flex-start; flex-direction: column; gap: 6px; }
+  .project-commission-selected-staff > span, .project-commission-available-staff > span { flex: 0 0 auto; line-height: 1.4; }
+  .project-commission-batch-tag { margin-left: 0; }
+  .project-commission-editor-footer { justify-content: stretch; }
+  .project-commission-editor-footer > .ant-btn { flex: 1; }
+  .project-setting-customer-block { grid-template-columns: minmax(0, 1fr); gap: 7px; }
+  .project-setting-input-line .ant-input-number { flex: 1; width: 0; }
+  .project-card-selection-drawer .ant-drawer-body { padding: 14px 12px 18px; }
+  .project-card-selection-drawer .ant-drawer-extra { display: flex; }
+}

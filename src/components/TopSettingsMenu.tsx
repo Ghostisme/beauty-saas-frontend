@@ -61,7 +61,7 @@ const settingsGroups: SettingsGroup[] = [
       { key: 'staff-list', label: '员工列表', route: '/staff-management?tab=users' },
       { key: 'positions', label: '职位管理', route: '/staff-management?tab=positions', permission: 'roles:read' },
       { key: 'schedules', label: '员工排班', route: '/staff-management?tab=schedules', permission: 'users:read' },
-      { key: 'sop', label: 'SOP自检' },
+      { key: 'sop', label: 'SOP自检', route: '/staff-management?tab=sop', permission: 'users:read' },
       { key: 'attendance', label: '考勤打卡' },
       { key: 'points', label: '员工积分' },
     ],

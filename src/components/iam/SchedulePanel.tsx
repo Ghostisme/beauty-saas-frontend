@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { App, Button, Checkbox, Drawer, Grid, Popconfirm, Segmented, Select, Space, Table, Tabs } from 'antd'
+import { App, Button, Checkbox, Drawer, Popconfirm, Segmented, Select, Space, Table, Tabs } from 'antd'
 import { LeftOutlined, RightOutlined, SettingOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import { useAuth } from '@/context/AuthContext'
@@ -18,7 +18,6 @@ export function SchedulePanel({ revision }: IamPanelProps) {
   const { can } = useAuth()
   const request = useIamRequest()
   const { message } = App.useApp()
-  const screens = Grid.useBreakpoint()
   const [mode, setMode] = useState<ViewMode>('week')
   const [anchor, setAnchor] = useState(dayjs)
   const [storeId, setStoreId] = useState<number>()
@@ -118,7 +117,7 @@ export function SchedulePanel({ revision }: IamPanelProps) {
             } }
         }),
       ]} />}
-    <Drawer className="staff-settings-drawer" title="排班设置" placement="right" size={screens.md ? '80vw' : '100vw'} open={settingsOpen} onClose={() => setSettingsOpen(false)} destroyOnHidden>
+    <Drawer className="staff-settings-drawer" title="排班设置" placement="right" size="min(960px, calc(100vw - 32px))" open={settingsOpen} onClose={() => setSettingsOpen(false)} destroyOnHidden>
       <Tabs activeKey={settingsTab} onChange={setSettingsTab} items={[
         { key: 'participants', label: '排班员工设置', children: <div className="staff-participant-settings">
           <h3>参与排班的员工</h3>

@@ -105,15 +105,15 @@ button { -webkit-tap-highlight-color: transparent; }
 /* Keep right-side drawers compact and consistent instead of letting workspaces
    consume the whole viewport. Larger tables still scroll inside their own
    panels, while forms stay readable and leave the underlying page visible. */
-.ant-drawer-right .ant-drawer-content-wrapper { max-width: min(1120px, calc(100vw - 32px)); }
+.ant-drawer-right .ant-drawer-content-wrapper { max-width: min(960px, calc(100vw - 32px)); }
 .ant-drawer-right .ant-drawer-content { border-left: 1px solid var(--border, #e8e8e8); box-shadow: -10px 0 28px rgb(31 35 41 / 8%); }
 .ant-drawer-right .ant-drawer-body { overflow-x: hidden; }
 .inventory-alerts-drawer .ant-drawer-content-wrapper { width: min(520px, calc(100vw - 24px)) !important; }
-.appointment-settings-drawer .ant-drawer-content-wrapper { width: min(1080px, calc(100vw - 32px)) !important; }
-.staff-settings-drawer .ant-drawer-content-wrapper, .staff-sop-drawer .ant-drawer-content-wrapper { width: min(1000px, calc(100vw - 32px)) !important; }
-.customer-detail-drawer .ant-drawer-content-wrapper { width: min(1080px, calc(100vw - 32px)) !important; }
+.appointment-settings-drawer .ant-drawer-content-wrapper { width: min(960px, calc(100vw - 32px)) !important; }
+.staff-settings-drawer .ant-drawer-content-wrapper, .staff-sop-drawer .ant-drawer-content-wrapper { width: min(960px, calc(100vw - 32px)) !important; }
+.customer-detail-drawer .ant-drawer-content-wrapper { width: min(960px, calc(100vw - 32px)) !important; }
 .customer-gift-drawer .ant-drawer-content-wrapper { width: min(640px, calc(100vw - 24px)) !important; }
-.storage-selection-drawer .ant-drawer-content-wrapper { width: min(1040px, calc(100vw - 32px)) !important; }
+.storage-selection-drawer .ant-drawer-content-wrapper { width: min(960px, calc(100vw - 32px)) !important; }
 .inventory-movement-drawer .ant-drawer-content-wrapper,
 .transfer-drawer .ant-drawer-content-wrapper,
 .transfer-select-drawer .ant-drawer-content-wrapper,
@@ -121,7 +121,7 @@ button { -webkit-tap-highlight-color: transparent; }
 .stocktake-drawer .ant-drawer-content-wrapper,
 .stocktake-select-drawer .ant-drawer-content-wrapper,
 .cost-detail-drawer .ant-drawer-content-wrapper,
-.cost-product-drawer .ant-drawer-content-wrapper { width: min(1080px, calc(100vw - 32px)) !important; }
+.cost-product-drawer .ant-drawer-content-wrapper { width: min(960px, calc(100vw - 32px)) !important; }
 .project-card-selection-drawer .ant-drawer-content-wrapper { width: min(720px, calc(100vw - 24px)) !important; }
 
 /* Homepage follows the reference: reminders, monthly goals, then six metrics. */

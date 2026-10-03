@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { App, Button, DatePicker, Drawer, Empty, Grid, Input, InputNumber, Modal, Radio, Select, Space, Spin, Tabs } from 'antd'
+import { App, Button, DatePicker, Drawer, Empty, Input, InputNumber, Modal, Radio, Select, Space, Spin, Tabs } from 'antd'
 import { CheckOutlined, FontSizeOutlined, NumberOutlined, PlusOutlined, SettingOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import { useAuth } from '@/context/AuthContext'
@@ -27,7 +27,6 @@ export function SopPanel({ revision }: IamPanelProps) {
   const { session, can } = useAuth()
   const request = useIamRequest()
   const { message } = App.useApp()
-  const screens = Grid.useBreakpoint()
   const [month, setMonth] = useState(() => dayjs().startOf('month'))
   const [storeId, setStoreId] = useState<number>()
   const [positionId, setPositionId] = useState<number>()
@@ -121,7 +120,7 @@ export function SopPanel({ revision }: IamPanelProps) {
           })}
         </tr>) : <tr><td colSpan={days.length + 1}><Empty description="该员工暂无适用的自检项" /></td></tr>}</tbody></table></div>}
       </div>}
-    <Drawer className="staff-sop-drawer" title="自检规则" placement="right" size={screens.md ? '80vw' : '100vw'} open={rulesOpen} onClose={() => setRulesOpen(false)} destroyOnHidden>
+    <Drawer className="staff-sop-drawer" title="自检规则" placement="right" size="min(960px, calc(100vw - 32px))" open={rulesOpen} onClose={() => setRulesOpen(false)} destroyOnHidden>
       <SopRuleManager rules={rulesQuery.data ?? []} positions={positions} writable={can('users:write')} loading={rulesQuery.loading} onChanged={refresh} />
     </Drawer>
     <Modal className="staff-sop-check-modal" title={target ? `${dayjs(target.date).date()}自检` : '自检'} open={target !== undefined}

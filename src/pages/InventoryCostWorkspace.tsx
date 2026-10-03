@@ -71,7 +71,7 @@ function CostDetailDrawer({ open, row, tenantId, range, onClose }: { open: boole
     ] },
     { title: '备注', dataIndex: 'remark', width: 180, render: value => value || '—' },
   ]
-  return <Drawer className="cost-detail-drawer" placement="right" size="min(1600px, calc(100vw - 40px))" open={open} onClose={onClose} title={<span>‹&nbsp; 成本明细</span>} footer={null} destroyOnHidden>
+  return <Drawer className="cost-detail-drawer" placement="right" size="min(960px, calc(100vw - 32px))" open={open} onClose={onClose} title={<span>‹&nbsp; 成本明细</span>} footer={null} destroyOnHidden>
     <div className="cost-detail-meta">
       <span>商品编码：<strong>{detail?.itemCode ?? row?.itemCode ?? '—'}</strong></span>
       <span>商品名称：<strong>{detail?.itemName ?? row?.itemName ?? '—'}</strong></span>
@@ -175,7 +175,7 @@ function CostAdjustmentProductDrawer({ open, tenantId, departmentId, products, l
     })
     onConfirm(selected)
   }
-  return <Drawer className="cost-product-drawer" placement="right" size="min(1500px, calc(100vw - 30px))" open={open} onClose={onClose} title={<span>‹&nbsp; 选择产品</span>} destroyOnHidden footer={<div className="drawer-actions"><Button onClick={onClose}>取消</Button><Button type="primary" onClick={confirm}>确认</Button></div>}>
+  return <Drawer className="cost-product-drawer" placement="right" size="min(960px, calc(100vw - 32px))" open={open} onClose={onClose} title={<span>‹&nbsp; 选择产品</span>} destroyOnHidden footer={<div className="drawer-actions"><Button onClick={onClose}>取消</Button><Button type="primary" onClick={confirm}>确认</Button></div>}>
     <div className="cost-selection-filters"><Select allowClear placeholder="请选择产品类别" value={category} options={categories.map(value => ({ value, label: value }))} onChange={setCategory} /><Select allowClear placeholder="请选择产品品牌" value={brand} options={brands.map(value => ({ value, label: value }))} onChange={setBrand} /><Input.Search value={keyword} allowClear placeholder="请输入产品名称或编号" onChange={event => setKeyword(event.target.value)} onSearch={setKeyword} /></div>
     <Table<typeof rows[number]> rowKey="id" loading={stock.loading} rowSelection={{ selectedRowKeys: selectedKeys, onChange: keys => setSelectedKeys(keys) }} columns={columns} dataSource={rows} scroll={{ x: 1000 }} pagination={{ ...paginationOptions, pageSize: 10 }} locale={{ emptyText: stock.loading ? <Spin /> : <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无相关数据" /> }} />
   </Drawer>

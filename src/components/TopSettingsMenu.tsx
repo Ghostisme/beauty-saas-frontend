@@ -62,7 +62,7 @@ const settingsGroups: SettingsGroup[] = [
       { key: 'positions', label: '职位管理', route: '/staff-management?tab=positions', permission: 'roles:read' },
       { key: 'schedules', label: '员工排班', route: '/staff-management?tab=schedules', permission: 'users:read' },
       { key: 'sop', label: 'SOP自检', route: '/staff-management?tab=sop', permission: 'users:read' },
-      { key: 'attendance', label: '考勤打卡' },
+      { key: 'attendance', label: '考勤打卡', permission: 'users:read' },
       { key: 'points', label: '员工积分' },
     ],
   },
@@ -100,8 +100,7 @@ export function TopSettingsMenu({ onDisplaySettings, onNavigate }: TopSettingsMe
     authorization: '/user-management?tab=roles',
     customers: '/customers',
     advanced: '/user-management?tab=tenant',
-    sop: '/system-logs',
-    attendance: '/staff-management?tab=users',
+    attendance: '/staff-management?tab=attendance',
     points: '/targets',
   }
 

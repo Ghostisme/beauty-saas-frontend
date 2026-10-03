@@ -9,6 +9,7 @@ import { RolePanel } from '@/components/iam/RolePanel'
 import { PositionPanel } from '@/components/iam/PositionPanel'
 import { SchedulePanel } from '@/components/iam/SchedulePanel'
 import { SopPanel } from '@/components/iam/SopPanel'
+import { AttendancePanel } from '@/components/iam/AttendancePanel'
 import { UserPanel } from '@/components/iam/UserPanel'
 import { TenantPanel } from '@/components/iam/TenantPanel'
 import { QueryError, useIamQuery } from '@/components/iam/shared'
@@ -24,6 +25,7 @@ const tabs = [
   { key: 'positions', label: '职位管理', permission: 'roles:read', component: PositionPanel },
   { key: 'schedules', label: '员工排班', permission: 'users:read', component: SchedulePanel },
   { key: 'sop', label: '员工 SOP 自检', permission: 'users:read', component: SopPanel },
+  { key: 'attendance', label: '考勤打卡', permission: 'users:read', component: AttendancePanel },
   { key: 'departments', label: '部门 / 门店', permission: 'departments:read', component: DepartmentPanel },
   { key: 'rooms', label: '房间', permission: 'rooms:read', component: RoomPanel },
   { key: 'roles', label: '角色权限', permission: 'roles:read', component: RolePanel },
@@ -34,8 +36,8 @@ export type ManagementFocus = 'all' | 'store' | 'staff'
 
 function focusTabs(focus: ManagementFocus) {
   if (focus === 'store') return tabs.filter(tab => tab.key === 'departments' || tab.key === 'rooms')
-  if (focus === 'staff') return tabs.filter(tab => tab.key === 'users' || tab.key === 'positions' || tab.key === 'schedules' || tab.key === 'sop')
-  return tabs.filter(tab => tab.key !== 'positions' && tab.key !== 'schedules' && tab.key !== 'sop')
+  if (focus === 'staff') return tabs.filter(tab => tab.key === 'users' || tab.key === 'positions' || tab.key === 'schedules' || tab.key === 'sop' || tab.key === 'attendance')
+  return tabs.filter(tab => tab.key !== 'positions' && tab.key !== 'schedules' && tab.key !== 'sop' && tab.key !== 'attendance')
 }
 
 function focusCopy(focus: ManagementFocus) {
@@ -95,7 +97,7 @@ function PlatformUserWorkspace({ focus = 'all' }: { focus?: ManagementFocus }) {
   const [params, setParams] = useSearchParams()
   const raw = params.get('tenantId')
   const tenantId = raw ? Number(raw) : undefined
-  const visibleTabs = focusTabs(focus).filter(tab => tab.key !== 'tenant' && tab.key !== 'positions' && tab.key !== 'schedules' && tab.key !== 'sop')
+  const visibleTabs = focusTabs(focus).filter(tab => tab.key !== 'tenant' && tab.key !== 'positions' && tab.key !== 'schedules' && tab.key !== 'sop' && tab.key !== 'attendance')
   const activeKey = visibleTabs.some(tab => tab.key === params.get('tab')) ? params.get('tab')! : visibleTabs[0]?.key
   const copy = focusCopy(focus)
   function chooseEnterprise(id?: number) {

@@ -7,7 +7,7 @@ export function useIamRequest() {
   const tenantId = useContext(IamScopeContext)
   return useCallback(<T,>(path: string, init?: RequestInit) => {
     const headers = new Headers(init?.headers)
-    if (tenantId !== undefined && path.startsWith('/iam/')) headers.set('X-Tenant-Id', String(tenantId))
+    if (tenantId !== undefined && (path.startsWith('/iam/') || path.startsWith('/staff/'))) headers.set('X-Tenant-Id', String(tenantId))
     return request<T>(path, { ...init, headers })
   }, [tenantId])
 }

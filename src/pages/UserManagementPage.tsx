@@ -6,6 +6,8 @@ import { useAuth } from '@/context/AuthContext'
 import { DepartmentPanel } from '@/components/iam/DepartmentPanel'
 import { RoomPanel } from '@/components/iam/RoomPanel'
 import { RolePanel } from '@/components/iam/RolePanel'
+import { PositionPanel } from '@/components/iam/PositionPanel'
+import { SchedulePanel } from '@/components/iam/SchedulePanel'
 import { UserPanel } from '@/components/iam/UserPanel'
 import { TenantPanel } from '@/components/iam/TenantPanel'
 import { QueryError, useIamQuery } from '@/components/iam/shared'
@@ -18,6 +20,8 @@ import '@/styles/platform.css'
 
 const tabs = [
   { key: 'users', label: '用户', permission: 'users:read', component: UserPanel },
+  { key: 'positions', label: '职位管理', permission: 'roles:read', component: PositionPanel },
+  { key: 'schedules', label: '员工排班', permission: 'users:read', component: SchedulePanel },
   { key: 'departments', label: '部门 / 门店', permission: 'departments:read', component: DepartmentPanel },
   { key: 'rooms', label: '房间', permission: 'rooms:read', component: RoomPanel },
   { key: 'roles', label: '角色权限', permission: 'roles:read', component: RolePanel },
@@ -28,8 +32,8 @@ export type ManagementFocus = 'all' | 'store' | 'staff'
 
 function focusTabs(focus: ManagementFocus) {
   if (focus === 'store') return tabs.filter(tab => tab.key === 'departments' || tab.key === 'rooms')
-  if (focus === 'staff') return tabs.filter(tab => tab.key === 'users')
-  return tabs
+  if (focus === 'staff') return tabs.filter(tab => tab.key === 'users' || tab.key === 'positions' || tab.key === 'schedules')
+  return tabs.filter(tab => tab.key !== 'positions' && tab.key !== 'schedules')
 }
 
 function focusCopy(focus: ManagementFocus) {
@@ -70,7 +74,7 @@ function ManagementWorkspace({ enterprise, focus = 'all' }: { enterprise?: Enter
         <QueryError error={query.error} onRetry={query.reload} />
         {query.loading && !query.data && <div className="iam-loading"><Spin tip="正在加载企业配置"><div /></Spin></div>}
         {query.data && <Tabs activeKey={activeKey} tabBarGutter={screens.md ? 32 : 8} onChange={key => setSearchParams(currentQuery(next => next.set('tab', key)))} destroyOnHidden items={visibleTabs.map(({ key, label, component: Panel }) => ({
-          key, label, children: <Panel options={query.data!} revision={revision} onChanged={onChanged} />,
+          key, label: focus === 'staff' && key === 'users' ? '员工列表' : label, children: <Panel options={query.data!} revision={revision} onChanged={onChanged} />,
         }))} />}
       </div>
     </section>
@@ -89,7 +93,7 @@ function PlatformUserWorkspace({ focus = 'all' }: { focus?: ManagementFocus }) {
   const [params, setParams] = useSearchParams()
   const raw = params.get('tenantId')
   const tenantId = raw ? Number(raw) : undefined
-  const visibleTabs = focusTabs(focus).filter(tab => tab.key !== 'tenant')
+  const visibleTabs = focusTabs(focus).filter(tab => tab.key !== 'tenant' && tab.key !== 'positions' && tab.key !== 'schedules')
   const activeKey = visibleTabs.some(tab => tab.key === params.get('tab')) ? params.get('tab')! : visibleTabs[0]?.key
   const copy = focusCopy(focus)
   function chooseEnterprise(id?: number) {

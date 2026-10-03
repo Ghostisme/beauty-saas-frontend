@@ -1,6 +1,6 @@
 import { expect } from '@playwright/test'
 import type { Page } from '@playwright/test'
-import type { Department, ManagedUser, Permission, Role, Room } from '../../src/types/iam'
+import type { Department, ManagedUser, Permission, Role, Room, StaffPosition } from '../../src/types/iam'
 import { installSession, permissions, session } from './auth'
 
 // Stateful browser-only API fixture. Tenant/RBAC enforcement is tested by the Java integration suite.
@@ -25,7 +25,11 @@ export async function installIam(page: Page, profile = session.userInfo, authent
     { id: 2, username: 'manager', nickname: '张经理', phone: '13800000000', status: 1, owner: false, departmentIds: [1], departments: [{ id: 1, name: '中心店' }], roleGrants: [{ roleId: 2, departmentId: 1, roleName: '店长', departmentName: '中心店' }], createTime: '2026-09-22T10:00:00' },
   ]
   const rooms: Room[] = [{ id: 1, code: 'A01', name: '舒适护理室', capacity: 2, departmentId: 1, departmentName: '中心店', status: 1 }]
-  const state = { departments, roles, users, rooms, failNext: '', writes: [] as { method: string; path: string; body: Record<string, unknown> }[], tenantName: profile.tenantName }
+  const positions: StaffPosition[] = [
+    { id: 1, code: 'STORE_MANAGER', name: '店长', status: 1, createTime: '2026-09-22T10:00:00' },
+    { id: 2, code: 'BEAUTICIAN', name: '美容师', status: 1, createTime: '2026-09-22T10:00:00' },
+  ]
+  const state = { departments, roles, users, rooms, positions, failNext: '', writes: [] as { method: string; path: string; body: Record<string, unknown> }[], tenantName: profile.tenantName }
   let nextId = 100
   await page.route('**/api/iam/**', async route => {
     const url = new URL(route.request().url())
@@ -36,7 +40,7 @@ export async function installIam(page: Page, profile = session.userInfo, authent
     // Keep the outage stable across StrictMode's aborted first request; the test explicitly recovers it.
     if (state.failNext === path) return route.fulfill({ status: 503, json: { code: 503, message: 'test unavailable' } })
     if (path === 'me') return respond({ ...profile, tenantName: state.tenantName })
-    if (path === 'options') return respond({ departments, roles, permissions: catalog, companyPermissions: ['tenant:read', 'tenant:write', 'users:write', 'departments:write', 'roles:read', 'roles:write'], roomDepartmentIds: profile.permissions.includes('rooms:write') ? departments.filter(d => d.status === 1).map(d => d.id) : [] })
+    if (path === 'options') return respond({ departments, roles, positions, permissions: catalog, companyPermissions: ['tenant:read', 'tenant:write', 'users:write', 'departments:write', 'roles:read', 'roles:write'], roomDepartmentIds: profile.permissions.includes('rooms:write') ? departments.filter(d => d.status === 1).map(d => d.id) : [] })
     if (method === 'GET' && path === 'tenant') return respond({ id: 1, code: profile.tenantCode, name: state.tenantName, status: 1, adminUsername: 'admin', adminName: '管理员', createTime: '2026-09-22T10:00:00' })
     if (method === 'GET' && path === 'departments') return respond(departments)
     if (method === 'GET') {

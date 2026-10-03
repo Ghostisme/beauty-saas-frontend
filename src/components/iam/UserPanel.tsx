@@ -9,7 +9,7 @@ import { departmentOptions, errorMessage, paginationOptions, passwordRules, Quer
 import type { IamPanelProps } from './shared'
 import type { ManagedUser, PageResult, RoleGrant } from '@/types/iam'
 
-interface Values { username: string; nickname: string; phone?: string; email?: string; status: number; password?: string; departmentIds: number[]; roleGrants: RoleGrant[] }
+interface Values { username: string; nickname: string; phone?: string; email?: string; status: number; password?: string; positionId?: number; departmentIds: number[]; roleGrants: RoleGrant[] }
 type Filters = { page: number; pageSize: number; keyword?: string; departmentId?: number; status?: number }
 
 export function UserPanel({ options, revision, onChanged }: IamPanelProps) {
@@ -40,7 +40,7 @@ export function UserPanel({ options, revision, onChanged }: IamPanelProps) {
     setSaving(true)
     try {
       await saveRecord('users', editing?.id, {
-        username: values.username, nickname: values.nickname, phone: values.phone ?? '', email: values.email ?? '', status: values.status,
+        username: values.username, nickname: values.nickname, phone: values.phone ?? '', email: values.email ?? '', status: values.status, positionId: values.positionId ?? null,
         ...(editing ? {} : { password: values.password }), departmentIds: values.departmentIds ?? [],
         roleGrants: values.roleGrants.map(grant => ({ roleId: grant.roleId, departmentId: grant.departmentId || null })),
       }, request)
@@ -69,6 +69,7 @@ export function UserPanel({ options, revision, onChanged }: IamPanelProps) {
     <Table<ManagedUser> rowKey="id" loading={query.loading} dataSource={query.data?.records ?? []} size="middle" scroll={{ x: 1120 }} pagination={{ ...paginationOptions, current: filters.page, pageSize: filters.pageSize, total: query.data?.total ?? 0, onChange: (page, pageSize) => setFilters(previous => ({ ...previous, page, pageSize })) }} columns={[
       { title: '用户信息', dataIndex: 'nickname', width: 190, render: (name: string, row) => <div className="iam-user-cell"><strong>{name} {row.owner && <Tag color="blue">负责人</Tag>}</strong><span>{row.username}</span></div> },
       { title: '手机号', dataIndex: 'phone', width: 140, render: value => value || '—' },
+      { title: '职位', dataIndex: 'positionName', width: 120, render: value => value || '—' },
       { title: '所属部门 / 门店', dataIndex: 'departments', width: 190, render: (departments: ManagedUser['departments']) => departments.length ? <Space wrap size={[0, 4]}>{departments.map(item => <Tag key={item.id}>{item.name}</Tag>)}</Space> : <span className="iam-muted">未分配部门</span> },
       { title: '角色 / 授权范围', dataIndex: 'roleGrants', width: 290, render: (roleGrants: RoleGrant[]) => <Space wrap size={[0, 4]}>{roleGrants.map(grant => <Tag key={`${grant.roleId}:${grant.departmentId}`}>{grant.roleName} · {grant.departmentId ? grant.departmentName : '企业范围'}</Tag>)}</Space> },
       { title: '状态', dataIndex: 'status', width: 90, render: value => <StatusTag status={value} /> },
@@ -80,6 +81,7 @@ export function UserPanel({ options, revision, onChanged }: IamPanelProps) {
         <div className="iam-form-grid">
           <Form.Item label="登录账号" name="username" rules={[{ required: true, message: '请输入登录账号' }, { pattern: /^[A-Za-z0-9_][A-Za-z0-9_.-]{2,49}$/, message: '3–50 位字母、数字、下划线、点或连字符' }]}><Input maxLength={50} disabled={!!editing || saving} autoComplete="off" /></Form.Item>
           <Form.Item label="用户姓名" name="nickname" rules={[{ required: true, whitespace: true, message: '请输入用户姓名' }]}><Input maxLength={50} /></Form.Item>
+          <Form.Item label="职位" name="positionId"><Select allowClear placeholder="请选择职位" options={options.positions.map(item => ({ value: item.id, label: item.name, disabled: item.status !== 1 }))} /></Form.Item>
           <Form.Item label="手机号" name="phone"><Input maxLength={20} inputMode="tel" autoComplete="off" /></Form.Item>
           <Form.Item label="邮箱" name="email" rules={[{ type: 'email', message: '请输入有效邮箱地址' }]}><Input maxLength={100} autoComplete="off" /></Form.Item>
           {!editing && <Form.Item label="初始密码" name="password" rules={passwordRules}><Input.Password maxLength={72} autoComplete="new-password" /></Form.Item>}
